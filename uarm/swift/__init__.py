@@ -44,6 +44,7 @@ class HandleQueue(Queue):
 class Swift(Pump, Keys, Gripper, Grove):
     def __init__(self, port=None, baudrate=115200, timeout=None, **kwargs):
         super(Swift, self).__init__()
+        self._verbose = kwargs.get('verbose', False)
         self.cmd_pend = {}
         self.cmd_pend_size = kwargs.get('cmd_pend_size', 2)
         if not isinstance(self.cmd_pend_size, int) or self.cmd_pend_size < 2:
@@ -384,7 +385,7 @@ class Swift(Pump, Keys, Gripper, Grove):
         while time.time() - start_time < timeout:
             if self.power_status:
                 break
-            self.get_power_status(wait=True, timeout=0.5, debug=False)
+            self.get_power_status(wait=True, timeout=0.05, debug=False)
 
     def connect(self, port=None, baudrate=None, timeout=None):
         self.serial.connect(port, baudrate, timeout)
@@ -513,7 +514,10 @@ class Swift(Pump, Keys, Gripper, Grove):
             #     'msg': '#{cnt} {msg}'.format(cnt=self._cnt, msg=msg)
             # })
             cmd.start()
-            self.serial.write('#{cnt} {msg}'.format(cnt=self._cnt, msg=msg))
+            ser_msg = '#{cnt} {msg}'.format(cnt=self._cnt, msg=msg)
+            if self._verbose:
+                print('SERIAL-WRITE: {0}'.format(ser_msg))
+            self.serial.write(ser_msg)
             self._cnt += 1
             if self._cnt == 10000:
                 self._cnt = 1
@@ -526,6 +530,8 @@ class Swift(Pump, Keys, Gripper, Grove):
         if no_cnt:
             timeout = timeout if isinstance(timeout, (int, float)) else self.cmd_timeout
             self._other_que.queue.clear()
+            if self._verbose:
+                print('SERIAL-WRITE: {0}'.format(msg))
             self.serial.write(msg)
             return self._other_que.get(timeout)
         else:
