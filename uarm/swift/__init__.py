@@ -45,6 +45,7 @@ class Swift(Pump, Keys, Gripper, Grove):
     def __init__(self, port=None, baudrate=115200, timeout=None, **kwargs):
         super(Swift, self).__init__()
         self._verbose = kwargs.get('verbose', False)
+        self._verbose_serial = kwargs.get('_verbose_serial', False)
         self.cmd_pend = {}
         self.cmd_pend_size = kwargs.get('cmd_pend_size', 2)
         if not isinstance(self.cmd_pend_size, int) or self.cmd_pend_size < 2:
@@ -515,7 +516,7 @@ class Swift(Pump, Keys, Gripper, Grove):
             # })
             cmd.start()
             ser_msg = '#{cnt} {msg}'.format(cnt=self._cnt, msg=msg)
-            if self._verbose:
+            if self._verbose_serial:
                 print('SERIAL-WRITE: {0}'.format(ser_msg))
             self.serial.write(ser_msg)
             self._cnt += 1
@@ -530,7 +531,7 @@ class Swift(Pump, Keys, Gripper, Grove):
         if no_cnt:
             timeout = timeout if isinstance(timeout, (int, float)) else self.cmd_timeout
             self._other_que.queue.clear()
-            if self._verbose:
+            if self._verbose_serial:
                 print('SERIAL-WRITE: {0}'.format(msg))
             self.serial.write(msg)
             return self._other_que.get(timeout)

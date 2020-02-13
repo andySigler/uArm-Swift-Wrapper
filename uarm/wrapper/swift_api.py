@@ -35,6 +35,7 @@ class SwiftAPI(object):
         default cmd timeout is 2s
         """
         self._verbose = kwargs.get('verbose', False)
+        self._verbose_serial = kwargs.get('verbose_serial', False)
         self._arm = Swift(port=port,
                           baudrate=baudrate,
                           timeout=timeout,
