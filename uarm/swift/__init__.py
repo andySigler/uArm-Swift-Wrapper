@@ -45,7 +45,7 @@ class Swift(Pump, Keys, Gripper, Grove):
     def __init__(self, port=None, baudrate=115200, timeout=None, **kwargs):
         super(Swift, self).__init__()
         self._verbose = kwargs.get('verbose', False)
-        self._verbose_serial = kwargs.get('_verbose_serial', False)
+        self._verbose_serial = kwargs.get('verbose_serial', False)
         self.cmd_pend = {}
         self.cmd_pend_size = kwargs.get('cmd_pend_size', 2)
         if not isinstance(self.cmd_pend_size, int) or self.cmd_pend_size < 2:
