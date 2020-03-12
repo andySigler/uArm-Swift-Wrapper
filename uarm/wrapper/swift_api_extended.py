@@ -1,14 +1,30 @@
+import math
 import time
 
 from serial.tools.list_ports import comports
 from . import SwiftAPI
 
 
+# DEVICE INFO
+UARM_DEVICE_TYPE = 'SwiftPro'
+UARM_ALLOWED_FIRMWARE_VERSIONS = ['4.5.0']
+
 # SERIAL PORT
 UARM_USB_HWID = '2341:0042'
 
 # MODE (end-tool)
+# COORDINATE MODES
 UARM_DEFAULT_MODE = 'general'
+UARM_MODE_TO_CODE = {
+  'general': 0,
+  # 'laser': 1,
+  # '3d_printer': 2,
+  'pen_gripper': 3
+}
+UARM_CODE_TO_MODE = {
+  val: key
+  for key, val in UARM_MODE_TO_CODE.items()
+}
 
 UARM_MOTOR_IDS = {
   'base': 0,
@@ -17,7 +33,7 @@ UARM_MOTOR_IDS = {
   'wrist': 3
 }
 
-# MIN/MAX POSITIONS
+# MIN/MAX POSITIONS (are these useful?)
 UARM_POSITION_MIN = {
   'x': 110,
   'y': -350,
@@ -51,18 +67,6 @@ UARM_DEFAULT_PUMP_SLEEP = {True: 0.2, False: 0.2}
 UARM_DEFAULT_GRIP_SLEEP = {True: 0, False: 2.0}
 UARM_HOLDING_CODES = ['off', 'empty', 'holding']
 
-# COORDINATE MODES
-UARM_MODE_TO_CODE = {
-  'general': 0,
-  # 'laser': 1,
-  # '3d_printer': 2,
-  'pen_gripper': 3
-}
-UARM_CODE_TO_MODE = {
-  val: key
-  for key, val in UARM_MODE_TO_CODE.items()
-}
-
 # HOMING
 UARM_HOME_SPEED = 200
 UARM_HOME_ACCELERATION = 1.3
@@ -75,6 +79,9 @@ UARM_HOME_SIMULATE_POS = {'x': 120, 'y': 0, 'z': 30}
 UARM_DEFAULT_PROBE_SPEED = 10
 UARM_DEFAULT_PROBE_ACCELERATION = 1.3
 UARM_DEFAULT_PROBE_STEP = 1
+
+# TOUCH DETECT
+UARM_DEFAULT_TOUCH_THRESH_MM = 0.25
 
 
 def _is_uarm_port(port_info):
@@ -98,16 +105,18 @@ def _get_uarm_ports(verbose=False):
   return found_ports
 
 
-def uarm_create(**kwargs):
-  return SwiftAPIExtended(**kwargs)
+def uarm_create(verbose=False, verbose_serial=False, **kwargs):
+  return SwiftAPIExtended(verbose=verbose, verbose_serial=verbose_serial, **kwargs)
 
 
-def uarm_scan(**kwargs):
+def uarm_scan(verbose=False, verbose_serial=False, **kwargs):
   found_swifts = []
-  for port_info in _get_uarm_ports():
+  for port_info in _get_uarm_ports(verbose=verbose):
     try:
       swift = uarm_create(
           port=port_info.device,
+          verbose=verbose,
+          verbose_serial=verbose_serial,
           **kwargs)
       found_swifts.append(swift)
     except Exception as e:
@@ -117,9 +126,9 @@ def uarm_scan(**kwargs):
   raise RuntimeError('Unable to find uArm ports')
 
 
-def uarm_scan_and_connect(**kwargs):
+def uarm_scan_and_connect(verbose=False, verbose_serial=False, **kwargs):
   c_swift = None
-  for swift in uarm_scan(**kwargs):
+  for swift in uarm_scan(verbose=verbose, verbose_serial=verbose_serial, **kwargs):
     try:
       swift.connect()
       c_swift = swift
@@ -129,7 +138,7 @@ def uarm_scan_and_connect(**kwargs):
       continue
   if c_swift:
     if verbose:
-      print('Connected to uArm on port: {0}'.format(c_swift.serial.port))
+      print('Connected to uArm on port: {0}'.format(c_swift.port))
       for key, val in c_swift.get_device_info().items():
         print('\t- {0}: {1}'.format(key, val))
     return c_swift
@@ -139,38 +148,87 @@ def uarm_scan_and_connect(**kwargs):
 class SwiftAPIExtended(SwiftAPI):
 
   def __init__(self, connect=False, simulate=False, **kwargs):
+
+    '''
+    connect: during instantiation, should connect to serial port
+    simulate: makes this class intance unable to connect, only simulates
+
+    '''
+
+    self._enabled = False  # safer to assume motors are disabled
     self._simulating = simulate
+    self._port = kwargs.get('port', 'unknown')
+
+    # run self.update_position() to get real position from uArm
+    self._pos = UARM_HOME_SIMULATE_POS.copy()
+    self._wrist_angle = UARM_DEFAULT_WRIST_ANGLE
+
     self._mode_str = UARM_DEFAULT_MODE
     self._mode_code = UARM_MODE_TO_CODE[self._mode_str]
     self._speed = UARM_DEFAULT_SPEED
-    self._pushed_speed = [UARM_DEFAULT_SPEED]
     self._acceleration = UARM_DEFAULT_ACCELERATION
-    self._pushed_acceleration = [UARM_DEFAULT_ACCELERATION]
-    self._wrist_angle = UARM_DEFAULT_WRIST_ANGLE
-    self._pos = {'x': 0, 'y': 0, 'z': 0} # run self.home() to get real position
-    self._enabled = True # when connecting, the uArm always enables motors
-    kwargs['do_not_open'] = not connect
-    super().__init__(**kwargs) # raises Exception if port is incorrect
-    self.setup()
+    self._pushed_speed = []
+    self._pushed_acceleration = []
+
+    super().__init__(do_not_open=True, **kwargs)
+    if connect:
+      self.connect()
+    elif simulate:
+      self.setup()
 
   def _log_verbose(self, msg):
     if self._verbose:
       print(msg)
 
   '''
-  SETTINGS and MODES
+  SETTINGS, UTILS, and MODES
   '''
 
-  def simulate(is_simulating):
-    self._simulating = is_simulating;
-    return self
+  @property
+  def port(self):
+    return self._port
 
-  def is_simulating():
+  def connect(self, *args, **kwargs):
+    self._log_verbose('connect')
+    if self.is_simulating():
+      raise RuntimeError(
+        'uArm is in \"simulate\" mode, cannot connect to device')
+    super().connect(*args, **kwargs)
+    self.waiting_ready(timeout=3)
+    if kwargs.get('port'):
+      self._port = kwargs.get('port')
+    self.test_device_info()
+    self.setup()
+
+  def disconnect(self, *args, **kwargs):
+    self._log_verbose('disconnect')
+    if self.is_simulating():
+      raise RuntimeError(
+        'uArm is in \"simulate\" mode, cannot disconnect from device')
+    super().disconnect(*args, **kwargs)
+
+  def is_simulating(self):
     return bool(self._simulating)
+
+  def test_device_info(self):
+    self._log_verbose('test_device_info')
+    if self.is_simulating():
+      raise RuntimeError(
+        'uArm is in \"simulate\" mode, cannot test device info')
+    info = self.get_device_info()
+    self._log_verbose(info)
+    dt = info.get('device_type')
+    if not dt or dt != UARM_DEVICE_TYPE:
+      raise RuntimeError('Device type should be {0}, but got {1}'.format(
+        UARM_DEVICE_TYPE, dt))
+    fw = info.get('firmware_version')
+    if not fw or fw not in UARM_ALLOWED_FIRMWARE_VERSIONS:
+      raise RuntimeError('Device FW version {0} not within {1}'.format(
+        fw, UARM_ALLOWED_FIRMWARE_VERSIONS))
 
   def setup(self):
     self._log_verbose('setup')
-    if not self._simulating:
+    if not self.is_simulating():
       self.flush_cmd()
       self.waiting_ready()
     self.set_speed_factor(UARM_DEFAULT_SPEED_FACTOR)
@@ -193,7 +251,7 @@ class SwiftAPIExtended(SwiftAPI):
 
   def wait_for_arrival(self, timeout=10, set_pos=True):
     self._log_verbose('wait')
-    if self._simulating:
+    if self.is_simulating():
       return self
     start_time = time.time()
     self.waiting_ready(timeout=timeout)
@@ -213,7 +271,7 @@ class SwiftAPIExtended(SwiftAPI):
       raise ValueError('Unknown mode: {0}'.format(new_mode))
     self._mode_str = new_mode
     self._mode_code = UARM_MODE_TO_CODE[self._mode_str]
-    if not self._simulating:
+    if not self.is_simulating():
       self.set_mode(UARM_MODE_TO_CODE[self._mode_str])
     self.update_position()
     return self
@@ -249,16 +307,18 @@ class SwiftAPIExtended(SwiftAPI):
       acceleration = UARM_MAX_ACCELERATION
       self._log_verbose('acceleration changed to: {0}'.format(acceleration))
     self._acceleration = acceleration
-    if not self._simulating:
+    if not self.is_simulating():
       self.set_acceleration(acc=self._acceleration)
     return self
 
   def update_position(self):
     self._log_verbose('update_position')
-    if self._simulating:
+    if self.is_simulating():
       return self
     pos = self.get_position(wait=True)
-    if pos is None:
+    is_n = pos is None
+    is_l = isinstance(pos, list)
+    if is_n or not is_l or not len(pos) or not isinstance(pos[0], float):
       print('Not able to read position, out of bounds')
       return self
     self._pos = {
@@ -279,7 +339,7 @@ class SwiftAPIExtended(SwiftAPI):
 
   def move_to(self, x=None, y=None, z=None, check=True):
     self._log_verbose('move_to: x={0}, y={1}, z={2}'.format(x, y, z))
-    if self._enabled == False:
+    if not self._enabled:
       self.enable_all_motors()
     new_pos = self._pos.copy()
     if x is not None:
@@ -297,7 +357,7 @@ class SwiftAPIExtended(SwiftAPI):
             'Unable to reach {0} axis to position {1}'.format(
               ax.upper(), new_pos[ax]))
     speed_mm_per_min = self._speed * 60
-    if not self._simulating:
+    if not self.is_simulating():
       self.set_position(relative=False, speed=speed_mm_per_min, **new_pos)
     self._pos = new_pos
     return self
@@ -331,7 +391,7 @@ class SwiftAPIExtended(SwiftAPI):
       self.wait_for_arrival()
     # speed has no affect, b/c servo motors are controlled by PWM
     # so from the device's perspective, the change is instantaneous
-    if not self._simulating:
+    if not self.is_simulating():
       self.set_wrist(angle=angle)
       time.sleep(sleep)
     return self
@@ -345,21 +405,21 @@ class SwiftAPIExtended(SwiftAPI):
 
   def disable_base(self):
     self._log_verbose('disable_base')
-    if not self._simulating:
+    if not self.is_simulating():
       self.set_servo_detach(UARM_MOTOR_IDS['base'], wait=True)
     self._enabled = False
     return self
 
   def disable_all_motors(self):
     self._log_verbose('disable_all_motors')
-    if not self._simulating:
+    if not self.is_simulating():
       self.set_servo_detach(None, wait=True)
     self._enabled = False
     return self
 
   def enable_all_motors(self):
     self._log_verbose('enable_all_motors')
-    if not self._simulating:
+    if not self.is_simulating():
       self.set_servo_attach(None, wait=True)
     self._enabled = True
     # update position, b/c no way to know where we are
@@ -371,7 +431,7 @@ class SwiftAPIExtended(SwiftAPI):
     if self._mode_str != 'general':
       raise RuntimeError(
         'Must be in \"general\" to user pump')
-    if self._simulating:
+    if self.is_simulating():
       return self
     ret = self.set_pump(enable)
     if sleep is None:
@@ -384,7 +444,7 @@ class SwiftAPIExtended(SwiftAPI):
     if self._mode_str != 'pen_gripper':
       raise RuntimeError(
         'Must be in \"pen_gripper\" to user gripper')
-    if self._simulating:
+    if self.is_simulating():
       return self
     ret = self.set_gripper(enable)
     if sleep is None:
@@ -397,7 +457,7 @@ class SwiftAPIExtended(SwiftAPI):
     if self._mode_str != 'general':
       raise RuntimeError(
         'Must be in \"general\" mode to test if pressing something')
-    if self._simulating:
+    if self.is_simulating():
       raise RuntimeError('Not able to read limit switching while simulating')
     return self.get_limit_switch(wait=True)
 
@@ -416,7 +476,7 @@ class SwiftAPIExtended(SwiftAPI):
     self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
     # move to the "safe" position, where it is safe to disable all motors
     # using angles ensures it's the same regardless of mode (coordinate system)
-    if self._simulating:
+    if self.is_simulating():
       self.move_to(**UARM_HOME_SIMULATE_POS)
     else:
       for m_id in UARM_HOME_ORDER:
@@ -425,7 +485,7 @@ class SwiftAPIExtended(SwiftAPI):
     self.wait_for_arrival(set_pos=False)
     self.pop_settings()
     # b/c using servo angles, Python has lost track of where XYZ are
-    if not self._simulating:
+    if not self.is_simulating():
       time.sleep(0.25) # give it an extra time to ensure position is settled
     self.update_position()
     return self
@@ -441,4 +501,30 @@ class SwiftAPIExtended(SwiftAPI):
     return self
 
   def sleep(self):
+    if self._mode_str == 'general':
+      self.pump(False, sleep=0)
+    elif self._mode_str == 'pen_gripper':
+      self.grip(False, sleep=0)
+    self.rotate_to(angle=UARM_DEFAULT_WRIST_ANGLE, sleep=0)
     self.home().disable_all_motors()
+
+  def wait_for_touch(self, distance=None, timeout=None):
+    self.wait_for_arrival(set_pos=self._enabled)
+    start_time = time.time()
+    self.update_position()
+    if distance is None:
+      distance = UARM_DEFAULT_TOUCH_THRESH_MM
+    start_pos = self.position
+    while True:
+      if timeout and time.time() - start_time > timeout:
+        raise RuntimeError(
+          'uArm timed out waiting for a touch ({0} seconds)', timeout)
+      self.update_position()
+      diffs = {
+        ax: self.position[ax] - start_pos[ax]
+        for ax in 'xyz'
+      }
+      sums = sum([math.pow(v, 2) for v in diffs.values()])
+      moved = math.sqrt(sums)
+      if moved > distance:
+        return self
