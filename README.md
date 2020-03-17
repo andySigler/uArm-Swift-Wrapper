@@ -1,4 +1,4 @@
-# uArm-Python-SDK [Extended]
+# uArm Swift Wrapper
 
 ## Overview
 
