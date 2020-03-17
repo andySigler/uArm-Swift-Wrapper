@@ -71,7 +71,7 @@ class MarkdownDoc(pydoc.TextDoc):
         # get all the attributes of the class
         attrs = []
         for name, kind, classname, value in pydoc.classify_class_attrs(cls):
-            if pydoc.visiblename(name):
+            if pydoc.visiblename(name) and cls.__name__ == classname.__name__:
                 attrs.append((name, kind, classname, value))
 
         # sort them into categories
