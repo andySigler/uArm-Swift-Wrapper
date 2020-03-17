@@ -14,6 +14,8 @@ robot.pump(False)
 robot.sleep()
 ```
 
+Because this wrapper inherits from the original Python SDK from uFactory, all of their methods and functionalities are still available through this interface.
+
 ## Examples
 
 Some simple examples are included to show how the API wrapper can easily be used for simple movements and controls of the uArm Swift Pro:
