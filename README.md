@@ -1,5 +1,7 @@
 # uArm Swift Wrapper
 
+![uArm-Swift-Pro](doc/uarm-swift-pro.jpg)
+
 ## Overview
 
 This project is a fork and thin wrapper around the [uArm-Python-SDK](https://github.com/uArm-Developer/uArm-Python-SDK) from uFactory. The goal of this fork is to create a more intuitive and easier to use set of controls for the [uArm Swift/SwiftPro](https://store.ufactory.cc/products/uarm), built on-top of the original Python API from uFactory.
@@ -71,19 +73,19 @@ Second, connect the uArm to your computer over USB and power the uArm on.
 Finally, run the script:
 
 ```
-`bin/firmware/flash.sh <PORT>`
+bin/firmware/flash <PORT>`
 ```
 
 The `<PORT>` argument is the name of the serial port the uArm occupies on your operating system. For example, on my Macbook, the command looks like:
 
 ```
-bin/firmware/flash.sh /dev/tty.usbmodem1417501
+bin/firmware/flash /dev/tty.usbmodem1417501
 ```
 
 Or on Windows:
 
 ```
-bin/firmware/flash.sh COM2
+bin/firmware/flash COM2
 ```
 
 ## License
