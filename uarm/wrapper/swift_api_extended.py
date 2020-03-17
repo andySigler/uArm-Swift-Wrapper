@@ -33,20 +33,8 @@ UARM_MOTOR_IDS = {
   'wrist': 3
 }
 
-# MIN/MAX POSITIONS (are these useful?)
-UARM_POSITION_MIN = {
-  'x': 110,
-  'y': -350,
-  'z': -100 # not sure what this should be exactly
-}
-UARM_POSITION_MAX = {
-  'x': 330,
-  'y': 350,
-  'z': 150
-}
-
 # SPEED
-UARM_DEFAULT_SPEED_FACTOR = 0.007
+UARM_DEFAULT_SPEED_FACTOR = 0.007 # was found to make mm/sec near accurate
 UARM_MAX_SPEED = 600
 UARM_MIN_SPEED = 1
 UARM_DEFAULT_SPEED = 150
@@ -329,9 +317,21 @@ class SwiftAPIExtended(SwiftAPI):
     self._log_verbose('New Position: {0}'.format(self._pos))
     return self
 
+  def get_base_angle(self):
+    # this shouldn't be calculated but instead retrieved from device
+    # because there could be an offset applied to the endtool, which determines
+    # the cartesian coordinate position
+    angle = self.get_servo_angle(UARM_MOTOR_IDS['base'])
+    # map angle to match Y cartesian behavior (center=0, +Y=+Angle, etc.)
+    return (90 - angle) * -1
+
   @property
   def position(self):
     return self._pos.copy()
+
+  @property
+  def wrist_angle(self):
+    return float(self._wrist_angle)
 
   '''
   ATOMIC COMMANDS
@@ -348,23 +348,22 @@ class SwiftAPIExtended(SwiftAPI):
       new_pos['y'] = round(y, 2)
     if z is not None:
       new_pos['z'] = round(z, 2)
-    if check:
-      for ax in UARM_POSITION_MIN.keys():
-        min_ax = UARM_POSITION_MIN[ax]
-        max_ax = UARM_POSITION_MAX[ax]
-        if new_pos[ax] <= min_ax or new_pos[ax] >= max_ax:
-          raise RuntimeError(
-            'Unable to reach {0} axis to position {1}'.format(
-              ax.upper(), new_pos[ax]))
+    if check and not self._simulating:
+      # Send coordinates to uArm to see if they are within the limit.
+      # This must be done on the device itself, because of it's weird
+      # coordinate system and ability to loads at different positions.
+      unreachable = self.check_pos_is_limit(list(new_pos.values()))
+      if unreachable:
+        raise RuntimeError('Coordinate not in uArm limit: {0}'.format(new_pos))
     speed_mm_per_min = self._speed * 60
     if not self.is_simulating():
       self.set_position(relative=False, speed=speed_mm_per_min, **new_pos)
     self._pos = new_pos
     return self
 
-  def move_relative(self, x=None, y=None, z=None):
+  def move_relative(self, x=None, y=None, z=None, check=True):
     self._log_verbose('move_relative: x={0}, y={1}, z={2}'.format(x, y, z))
-    kwargs = {}
+    kwargs = {'check': check}
     if x is not None:
       kwargs['x'] = round(x + self._pos['x'], 2)
     if y is not None:
@@ -491,6 +490,7 @@ class SwiftAPIExtended(SwiftAPI):
     return self
 
   def probe(self, step=UARM_DEFAULT_PROBE_STEP, speed=UARM_DEFAULT_PROBE_SPEED):
+    # TODO: see if `register_limit_switch_callback()` can be used to halt
     self._log_verbose('probe')
     self.push_settings()
     self.speed(speed)
