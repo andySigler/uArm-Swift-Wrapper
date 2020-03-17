@@ -20,36 +20,35 @@ You can install through pip, or by cloning this repository and installing locall
 
 To install through pip, run:
 ```
-pip install git+git://github.com/andySigler/uArm-Python-SDK.git@uarm-extended#egg=uArm-Python-SDK
+pip install git+git://github.com/andySigler/uArm-Swift-Wrapper.git@master#egg=uArm-Swift-Wrapper
 ```
 
 To install by cloning the repository, run:
 ```
-git clone https://github.com/andySigler/uArm-Python-SDK.git
-cd uArm-Python-SDK
-git checkout uarm-extended
+git clone https://github.com/andySigler/uArm-Swift-Wrapper.git
+cd uArm-Swift-Wrapper
 python setup.py install
 ```
 
 ## Examples
 
-- [Connecting to a uArm](examples/api-extended/connect.py)
-- [Simulate for Unplugged Testing](examples/api-extended/simulate.py)
-- [Move the Arm](examples/api-extended/move_arm.py)
-- [Speed and Acceleration](examples/api-extended/speed_acceleration.py)
-- [Push/Pop the Speed Settings](examples/api-extended/speed_acceleration.py)
-- [Rotate the Wrist](examples/api-extended/rotate_wrist.py)
-- [Pick Up Items](examples/api-extended/pick_up.py)
-- [Disable the Motors](examples/api-extended/disable_motors.py)
-- [Read the Position](examples/api-extended/position.py)
-- [Chaining Commands](examples/api-extended/command_chaining.py)
-- [Using Original SwiftAPI Commands](examples/api-extended/original_swift_api.py)
+- [Connecting to a uArm](examples/api-wrapper/connect.py)
+- [Simulate for Unplugged Testing](examples/api-wrapper/simulate.py)
+- [Move the Arm](examples/api-wrapper/move_arm.py)
+- [Speed and Acceleration](examples/api-wrapper/speed_acceleration.py)
+- [Push/Pop the Speed Settings](examples/api-wrapper/speed_acceleration.py)
+- [Rotate the Wrist](examples/api-wrapper/rotate_wrist.py)
+- [Pick Up Items](examples/api-wrapper/pick_up.py)
+- [Disable the Motors](examples/api-wrapper/disable_motors.py)
+- [Read the Position](examples/api-wrapper/position.py)
+- [Chaining Commands](examples/api-wrapper/command_chaining.py)
+- [Using Original SwiftAPI Commands](examples/api-wrapper/original_swift_api.py)
 
 (The original examples by uFactory [can be found here](examples/api/))
 
 ## Documentation
 
-[Read the API reference documentation](doc/api/swift_api_extended.md)
+[Read the API reference documentation](doc/api/swift_api_wrapper.md)
 
 (The original API documentation by uFactory for their `SwiftAPI` class [can be found here](doc/api/swift_api.md))
 

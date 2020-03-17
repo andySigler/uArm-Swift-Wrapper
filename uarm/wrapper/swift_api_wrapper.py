@@ -95,20 +95,20 @@ def _get_uarm_ports(verbose=False):
 
 def uarm_create(verbose=False, verbose_serial=False, **kwargs):
   """
-  Helper method for creating instances of SwiftAPIExtended
-  :param verbose: If True, enables SwiftAPIExtended printing of debug messages
+  Helper method for creating instances of SwiftAPIWrapper
+  :param verbose: If True, enables SwiftAPIWrapper printing of debug messages
   :param verbose_serial: If True, enables printing of all GCode messages sent over serial
-  :return: instance of SwiftAPIExtended
+  :return: instance of SwiftAPIWrapper
   """
-  return SwiftAPIExtended(verbose=verbose, verbose_serial=verbose_serial, **kwargs)
+  return SwiftAPIWrapper(verbose=verbose, verbose_serial=verbose_serial, **kwargs)
 
 
 def uarm_scan(verbose=False, verbose_serial=False, **kwargs):
   """
-  Helper method for discovering serial ports for, and creating instances of, SwiftAPIExtended
-  :param verbose: If True, enables SwiftAPIExtended printing of debug messages
+  Helper method for discovering serial ports for, and creating instances of, SwiftAPIWrapper
+  :param verbose: If True, enables SwiftAPIWrapper printing of debug messages
   :param verbose_serial: If True, enables printing of all GCode messages sent over serial
-  :return: list of disconnected instances of SwiftAPIExtended, found connected over a serial port
+  :return: list of disconnected instances of SwiftAPIWrapper, found connected over a serial port
   """
   found_swifts = []
   for port_info in _get_uarm_ports(verbose=verbose):
@@ -128,10 +128,10 @@ def uarm_scan(verbose=False, verbose_serial=False, **kwargs):
 
 def uarm_scan_and_connect(verbose=False, verbose_serial=False, **kwargs):
   """
-  Helper method for discovering serial port, creating instances, and connecting to SwiftAPIExtended
-  :param verbose: If True, enables SwiftAPIExtended printing of debug messages
+  Helper method for discovering serial port, creating instances, and connecting to SwiftAPIWrapper
+  :param verbose: If True, enables SwiftAPIWrapper printing of debug messages
   :param verbose_serial: If True, enables printing of all GCode messages sent over serial
-  :return: Connected instance of SwiftAPIExtended, found connected over a serial port
+  :return: Connected instance of SwiftAPIWrapper, found connected over a serial port
   """
   c_swift = None
   for swift in uarm_scan(verbose=verbose, verbose_serial=verbose_serial, **kwargs):
@@ -151,7 +151,7 @@ def uarm_scan_and_connect(verbose=False, verbose_serial=False, **kwargs):
   raise RuntimeError('Unable to find uArm port')
 
 
-class SwiftAPIExtended(SwiftAPI):
+class SwiftAPIWrapper(SwiftAPI):
 
   def __init__(self, connect=False, simulate=False, **kwargs):
 
@@ -160,7 +160,7 @@ class SwiftAPIExtended(SwiftAPI):
     :param connect: If True, will auto-connect to the serial port
     :param simulate: If True, this instance will not connect to serial port, but will process all methods pretending that is is connected to a uArm
     :param port: optional, the serial port of the uArm as appears on the OS
-    :return: Instance of SwiftAPIExtended
+    :return: Instance of SwiftAPIWrapper
     """
 
     '''
@@ -236,7 +236,7 @@ class SwiftAPIExtended(SwiftAPI):
 
   def is_simulating(self):
     """
-    Check whether this instance of SwiftAPIExtended is simulating or not
+    Check whether this instance of SwiftAPIWrapper is simulating or not
     :return: True is simulating, else False
     """
     return bool(self._simulating)

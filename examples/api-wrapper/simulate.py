@@ -1,7 +1,7 @@
 from uarm import uarm_create
 
 
-# create an instance of `SwiftAPIExtended`, but with no serial port connection
+# create an instance of `SwiftAPIWrapper`, but with no serial port connection
 robot = uarm_create(simulate=True)
 if robot.is_simulating():
     print('uArm is simulating')

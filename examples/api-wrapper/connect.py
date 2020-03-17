@@ -13,7 +13,7 @@ robot.disconnect()
 # scan for all connected uArm's
 uarm_list = uarm_scan()
 
-# the list of `SwiftAPIExtended` intances are not connected yet
+# the list of `SwiftAPIWrapper` intances are not connected yet
 for r in uarm_list:
     r.connect()
     print('Connected to:', r.port)
