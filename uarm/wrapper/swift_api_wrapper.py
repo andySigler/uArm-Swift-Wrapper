@@ -414,7 +414,7 @@ class SwiftAPIWrapper(SwiftAPI):
   ATOMIC COMMANDS
   '''
 
-  def move_to(self, x=None, y=None, z=None, check=False):
+  def move_to(self, x=None, y=None, z=None, check=True):
     """
     Move to an absolute cartesian coordinate
     :param x: Cartesian millimeter of the X axis, if None then uses current position
@@ -433,20 +433,26 @@ class SwiftAPIWrapper(SwiftAPI):
       new_pos['y'] = round(y, 2)
     if z is not None:
       new_pos['z'] = round(z, 2)
-    if check and not self._simulating:
-      # Send coordinates to uArm to see if they are within the limit.
-      # This must be done on the device itself, because of it's weird
-      # coordinate system and ability to loads at different positions.
-      unreachable = self.check_pos_is_limit(list(new_pos.values()))
-      if unreachable:
-        raise RuntimeError('Coordinate not in uArm limit: {0}'.format(new_pos))
-    speed_mm_per_min = self._speed * 60
     if not self.is_simulating():
+      if check:
+        # Send coordinates to uArm to see if they are within the limit.
+        # This must be done on the device itself, because of it's weird
+        # coordinate system and load-carrying ability at different positions.
+        def _check_callback(unreachable):
+          if unreachable:
+            raise RuntimeError(
+              'Coordinate not reachable by uArm: {0}'.format(new_pos))
+
+        unreachable = self.check_pos_is_limit(
+          list(new_pos.values()), wait=False, callback=_check_callback)
+
+      speed_mm_per_min = self._speed * 60
       self.set_position(relative=False, speed=speed_mm_per_min, **new_pos)
-    self._pos = new_pos
+
+    self._pos = new_pos.copy()
     return self
 
-  def move_relative(self, x=None, y=None, z=None, check=False):
+  def move_relative(self, x=None, y=None, z=None, check=True):
     """
     Move to a relative cartesian coordinate, away from it's current coordinate
     :param x: Cartesian millimeter of the X axis, if None then uses current position
@@ -610,7 +616,7 @@ class SwiftAPIWrapper(SwiftAPI):
     self.acceleration(UARM_HOME_ACCELERATION)
     # move to a know absolute position first, or else the follow
     # servo-angle commands will act unpredictably
-    self.move_to(check=False, **UARM_HOME_START_POS).wait_for_arrival()
+    self.move_to(**UARM_HOME_START_POS).wait_for_arrival()
     self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
     # move to the "safe" position, where it is safe to disable all motors
     # using angles ensures it's the same regardless of mode (coordinate system)

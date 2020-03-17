@@ -22,5 +22,9 @@ robot.move_relative(z=20)
 # Telling the robot to move will send a command over the USB serial port
 # however, it might still be moving when the Python command returns.
 # If you need to know when it is finished moving, using `wait_for_arrival()`
+
+# A minor issue with this is that movement will be slightly less smooth,
+# because you are waiting for the device to stop while sending it more data
+
 robot.move_to(x=150, y=100)
 robot.wait_for_arrival() # returns when the robot has stopped moving
