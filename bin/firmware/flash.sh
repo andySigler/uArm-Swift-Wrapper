@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+PORT="$1"
+if [ -n "$PORT" ]; then
+    FIRMWARE_DIR="$(
+      cd "$(dirname "$0")" || exit
+      pwd -P
+    )"
+    HEX_PATH="$FIRMWARE_DIR/uArmPro_V4.5.0_release_20190924.hex"
+
+    if hash avrdude 2>/dev/null; then
+        avrdude -D -v -patmega2560 -cwiring -P"$PORT" -b115200 -Uflash:w:"$HEX_PATH"
+    else
+        echo "Please install avdude before updating firmware"
+    fi
+else
+    echo "Pass the port of your uArm when running this script"
+fi
