@@ -414,7 +414,35 @@ class SwiftAPIWrapper(SwiftAPI):
   ATOMIC COMMANDS
   '''
 
-  def move_to(self, x=None, y=None, z=None, check=True):
+  def can_move_to(self, x=None, y=None, z=None):
+    self._log_verbose('can_move_to: x={0}, y={1}, z={2}'.format(x, y, z))
+    if self.is_simulating():
+      return True  # no way to test during simulation
+    new_pos = self._pos.copy()
+    if x is not None:
+      new_pos['x'] = round(x, 2)
+    if y is not None:
+      new_pos['y'] = round(y, 2)
+    if z is not None:
+      new_pos['z'] = round(z, 2)
+    # Send coordinates to uArm to see if they are within the limit.
+    # This must be done on the device itself, because of it's weird
+    # coordinate system and load-carrying ability at different positions.
+    unreachable = self.check_pos_is_limit(list(new_pos.values()))
+    return not bool(unreachable)
+
+  def can_move_relative(self, x=None, y=None, z=None):
+    self._log_verbose('can_move_relative: x={0}, y={1}, z={2}'.format(x, y, z))
+    new_pos = self._pos.copy()
+    if x is not None:
+      new_pos['x'] = round(x + new_pos['x'], 2)
+    if y is not None:
+      new_pos['y'] = round(y + new_pos['y'], 2)
+    if z is not None:
+      new_pos['z'] = round(z + new_pos['z'], 2)
+    return self.can_move_to(**new_pos)
+
+  def move_to(self, x=None, y=None, z=None, check=False):
     """
     Move to an absolute cartesian coordinate
     :param x: Cartesian millimeter of the X axis, if None then uses current position
@@ -434,25 +462,16 @@ class SwiftAPIWrapper(SwiftAPI):
     if z is not None:
       new_pos['z'] = round(z, 2)
     if not self.is_simulating():
-      if check:
-        # Send coordinates to uArm to see if they are within the limit.
-        # This must be done on the device itself, because of it's weird
-        # coordinate system and load-carrying ability at different positions.
-        def _check_callback(unreachable):
-          if unreachable:
-            raise RuntimeError(
-              'Coordinate not reachable by uArm: {0}'.format(new_pos))
-
-        unreachable = self.check_pos_is_limit(
-          list(new_pos.values()), wait=False, callback=_check_callback)
-
+      if check and not self.can_move_to(**new_pos):
+        raise RuntimeError(
+          'Coordinate not reachable by uArm: {0}'.format(new_pos))
       speed_mm_per_min = self._speed * 60
       self.set_position(relative=False, speed=speed_mm_per_min, **new_pos)
 
     self._pos = new_pos.copy()
     return self
 
-  def move_relative(self, x=None, y=None, z=None, check=True):
+  def move_relative(self, x=None, y=None, z=None, check=False):
     """
     Move to a relative cartesian coordinate, away from it's current coordinate
     :param x: Cartesian millimeter of the X axis, if None then uses current position
