@@ -1,4 +1,4 @@
-# uArm Swift Wrapper
+# uArm Python Wrapper
 
 ![uArm-Swift-Pro](doc/uarm-swift-pro.jpg)
 
