@@ -36,7 +36,33 @@ Some simple examples are included to show how the API wrapper can easily be used
 
 (The original examples by uFactory [can be found here](examples/api/))
 
-## Documentation
+## Quirks
+
+The uArm Swift Pro has a few unique attributes and behaviors, which need to be understood before using the device. [Here is a document](./QUIRKS.md) describing the quirks and issues I've found while developing on this device.
+
+- [When Powering](./QUIRKS.md#when-powering)
+- [When Connecting](./QUIRKS.md#when-connecting)
+- [Overheating](./QUIRKS.md#overheating)
+- [Positions and Encoders](./QUIRKS.md#positions-and-encoders)
+- [Reachable Coordinates](./QUIRKS.md#reachable-coordinates)
+- [Arched Movements](./QUIRKS.md#arched-movements)
+- [Occasional Pauses](./QUIRKS.md#occasional-pauses)
+- [Camera Mounting](./QUIRKS.md#camera-mounting)
+
+It is recommended to read through this list before using the uArm Swift Pro and this Python wrapper.
+
+## Desired Features
+
+Keeping track of features to be added to this wrapper:
+
+- Auto-adjust for skipped steps using built-in rotary encoders
+- API control over OSC (Open Sound Control)
+- Libraries (for control over OSC) in Python, Javascript (HTML5/NodeJS/P5.js), and Max/MSP/Jitter
+- User-motion recording (with motors off), and on-device motion playback
+- Camera tracking helpers (camera offset/rotation translation; pixel to millimeter conversion)
+
+
+## API Reference
 
 The [API reference documentation can be found here](doc/api/swift_api_wrapper.md), which include methods and attributes of the `SwiftAPIWrapper` class. (The original API documentation by uFactory for their `SwiftAPI` class [can be found here](doc/api/swift_api.md))
 
