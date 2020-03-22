@@ -18,30 +18,6 @@ robot.sleep()
 
 Because this wrapper inherits from the original Python SDK from uFactory, all of their methods and functionalities are still available through this interface.
 
-## Features
-
-List of current features on my mind. As new features are thought of, I'll add them here.
-
-- Movement
-    - [x] Absolute and relative movements
-    - [x] Can detect valid coordinates for the uArm
-    - [x] Near accurate millimeter speed and acceleration control
-    - [x] Push/pop speed settings
-    - [x] Rotating wrist servo motor
-    - [x] Pump or grip commands, with timing to ensure command has finished
-- Control
-    - [x] Read and update coordinates
-    - [x] Home method for moving to reliable position
-    - [x] Enable and disable stepper motors, all and individually
-    - [x] Simulation mode, for testing scripts with running on physical device
-    - [ ] Control over OSC
-    - [x] Chainable class methods
-    - [x] Use encoders to detect when the uArm is touched by a user
-- Misc
-    - [x] Works alongside original uArm-Python-SDK
-    - [x] Examples for basic wrapper methods
-    - [ ] Examples for controlling over OSC (Processing, P5.js, Max/MSP/Jitter, Node, etc.)
-
 ## Examples
 
 Some simple examples are included to show how the API wrapper can easily be used for simple movements and controls of the uArm Swift Pro:
