@@ -31,13 +31,13 @@ with open(os.path.join(os.getcwd(), 'requirements.txt')) as f:
     requirements = f.read().splitlines()
 
 setup(
-    name='uArm-Python-SDK',
+    name='uArm-Python-Wrapper',
     version=version,
-    author='Vinman',
-    description='Python SDK for uArm',
+    author='andySigler',
+    description='Wrapper for uFactory\'s uArm-Python-SDK',
     packages=find_packages(),
-    author_email='developer@ufactory.cc',
-    url="https://github.com/uarm-developer/uArm-Python-SDK",
+    author_email='andrewsigler1@gmail.com',
+    url="https://github.com/andysigler/uArm-Python-Wrapper",
     keywords="uarm4py uarmForPython uarm ufactory uarmForPython swift swiftpro swiftForPython swift4py",
     install_requires=requirements,
     long_description=long_description,
