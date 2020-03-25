@@ -11,9 +11,12 @@ if __name__ == "__main__":
     client = udp_client.SimpleUDPClient('127.0.0.1', 5005)
 
     while True:
-        client.send_message("/move_to", [port, random.randint(0, 100), random.randint(0, 100), random.randint(0, 100)])
+        r_pos = [random.randint(0, 100) for _ in 'xyz']
+        client.send_message("/move_to", [port] + r_pos)
         time.sleep(1)
         client.send_message("/position", [port])
         time.sleep(1)
         client.send_message("/port", [port])
+        time.sleep(1)
+        client.send_message("/speed", [port])
         time.sleep(1)
