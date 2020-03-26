@@ -6,6 +6,7 @@
 #
 # Author: Vinman <vinman.wen@ufactory.cc> <vinman.cub@gmail.com>
 
+import logging
 import time
 import re
 import os
@@ -29,6 +30,9 @@ from .utils import *
 from ..tools.threads import ThreadManage
 
 
+logger = logging.getLogger('uarm.swift')
+
+
 class HandleQueue(Queue):
     def __init__(self, maxsize=0, handle=None):
         super(HandleQueue, self).__init__(maxsize)
@@ -44,8 +48,6 @@ class HandleQueue(Queue):
 class Swift(Pump, Keys, Gripper, Grove):
     def __init__(self, port=None, baudrate=115200, timeout=None, **kwargs):
         super(Swift, self).__init__()
-        self._verbose = kwargs.get('verbose', False)
-        self._verbose_serial = kwargs.get('verbose_serial', False)
         self.cmd_pend = {}
         self.cmd_pend_size = kwargs.get('cmd_pend_size', 2)
         if not isinstance(self.cmd_pend_size, int) or self.cmd_pend_size < 2:
@@ -516,8 +518,7 @@ class Swift(Pump, Keys, Gripper, Grove):
             # })
             cmd.start()
             ser_msg = '#{cnt} {msg}'.format(cnt=self._cnt, msg=msg)
-            if self._verbose_serial:
-                print('SERIAL-WRITE: {0}'.format(ser_msg))
+            logger.debug(ser_msg)
             self.serial.write(ser_msg)
             self._cnt += 1
             if self._cnt == 10000:
@@ -531,8 +532,7 @@ class Swift(Pump, Keys, Gripper, Grove):
         if no_cnt:
             timeout = timeout if isinstance(timeout, (int, float)) else self.cmd_timeout
             self._other_que.queue.clear()
-            if self._verbose_serial:
-                print('SERIAL-WRITE: {0}'.format(msg))
+            logger.debug(ser_msg)
             self.serial.write(msg)
             return self._other_que.get(timeout)
         else:

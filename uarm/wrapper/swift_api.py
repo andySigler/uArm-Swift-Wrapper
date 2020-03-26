@@ -34,8 +34,6 @@ class SwiftAPI(object):
             enable_handle_report_thread: True/False, default is False
         default cmd timeout is 2s
         """
-        self._verbose = kwargs.get('verbose', False)
-        self._verbose_serial = kwargs.get('verbose_serial', False)
         self._arm = Swift(port=port,
                           baudrate=baudrate,
                           timeout=timeout,

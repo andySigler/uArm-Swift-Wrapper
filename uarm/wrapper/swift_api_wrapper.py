@@ -1,9 +1,12 @@
+import logging
 import math
 import time
 
 from serial.tools.list_ports import comports
 from . import SwiftAPI
 
+
+logger = logging.getLogger('uarm.swiftapi.wrapper')
 
 # DEVICE INFO
 UARM_DEVICE_TYPE = 'SwiftPro'
@@ -76,90 +79,94 @@ def _is_uarm_port(port_info):
   return (port_info.hwid and UARM_USB_HWID in port_info.hwid)
 
 
-def _serial_print_port_info(port_info):
-  print('- Port: {0}'.format(port_info.device))
+def _serial_log_port_info(port_info):
+  logger.debug('- Port: {0}'.format(port_info.device))
   for key, val in port_info.__dict__.items():
     if (key != 'device' and val and val != 'n/a'):
-      print('\t- {0}: {1}'.format(key, val))
+      logger.debug('\t- {0}: {1}'.format(key, val))
 
 
-def _get_uarm_ports(verbose=False):
+def _get_uarm_ports():
   found_ports = []
   for p in comports():
-    if verbose:
-      _serial_print_port_info(p)
+    _serial_log_port_info(p)
     if _is_uarm_port(p):
       found_ports.append(p)
   return found_ports
 
 
-def uarm_create(verbose=False, verbose_serial=False, **kwargs):
+def uarm_create(**kwargs):
   """
   Helper method for creating instances of SwiftAPIWrapper
-  :param verbose: If True, enables SwiftAPIWrapper printing of debug messages
-  :param verbose_serial: If True, enables printing of all GCode messages sent over serial
+  :param port: Serial port of the uArm
+  :param connect: If True, will auto-connect to serial port
+  :param print_gcode: If True, enables printing of all GCode messages sent over serial
   :return: instance of SwiftAPIWrapper
   """
-  return SwiftAPIWrapper(verbose=verbose, verbose_serial=verbose_serial, **kwargs)
+  return SwiftAPIWrapper(**kwargs)
 
 
-def uarm_scan(verbose=False, verbose_serial=False, **kwargs):
+def uarm_scan(print_gcode=False, **kwargs):
   """
   Helper method for discovering serial ports for, and creating instances of, SwiftAPIWrapper
-  :param verbose: If True, enables SwiftAPIWrapper printing of debug messages
-  :param verbose_serial: If True, enables printing of all GCode messages sent over serial
+  :param print_gcode: If True, enables printing of all GCode messages sent over serial
   :return: list of disconnected instances of SwiftAPIWrapper, found connected over a serial port
   """
   found_swifts = []
-  for port_info in _get_uarm_ports(verbose=verbose):
+  for port_info in _get_uarm_ports():
     try:
       swift = uarm_create(
           port=port_info.device,
-          verbose=verbose,
-          verbose_serial=verbose_serial,
+          connect=False,
+          print_gcode=print_gcode,
           **kwargs)
       found_swifts.append(swift)
     except Exception as e:
-      print(e)
+      logger.exception('Exception while running uarm_create()')
   if len(found_swifts):
     return found_swifts
   raise RuntimeError('Unable to find uArm ports')
 
 
-def uarm_scan_and_connect(verbose=False, verbose_serial=False, **kwargs):
+def uarm_scan_and_connect(print_gcode=False, **kwargs):
   """
   Helper method for discovering serial port, creating instances, and connecting to SwiftAPIWrapper
-  :param verbose: If True, enables SwiftAPIWrapper printing of debug messages
-  :param verbose_serial: If True, enables printing of all GCode messages sent over serial
+  :param print_gcode: If True, enables printing of all GCode messages sent over serial
   :return: Connected instance of SwiftAPIWrapper, found connected over a serial port
   """
   c_swift = None
-  for swift in uarm_scan(verbose=verbose, verbose_serial=verbose_serial, **kwargs):
+  for swift in uarm_scan(print_gcode=print_gcode, **kwargs):
     try:
       swift.connect()
       c_swift = swift
       break
     except Exception as e:
-      print(e)
+      logger.exception(
+        'Error connecting to uArm on port: {0}'.format(swift.port))
       continue
   if c_swift:
-    if verbose:
-      print('Connected to uArm on port: {0}'.format(c_swift.port))
-      for key, val in c_swift.get_device_info().items():
-        print('\t- {0}: {1}'.format(key, val))
+    logger.debug('Connected to uArm on port: {0}'.format(c_swift.port))
+    for key, val in c_swift.get_device_info().items():
+      logger.debug('\t- {0}: {1}'.format(key, val))
     return c_swift
   raise RuntimeError('Unable to find uArm port')
 
 
 class SwiftAPIWrapper(SwiftAPI):
 
-  def __init__(self, connect=False, simulate=False, **kwargs):
+  def __init__(self,
+               port=None,
+               connect=False,
+               simulate=False,
+               print_gcode=False,
+               **kwargs):
 
     """
     The API wrapper of SwiftAPI, which in turn wraps the Swift and SwiftPro
+    :param port: optional, the serial port of the uArm as appears on the OS
     :param connect: If True, will auto-connect to the serial port
     :param simulate: If True, this instance will not connect to serial port, but will process all methods pretending that is is connected to a uArm
-    :param port: optional, the serial port of the uArm as appears on the OS
+    :param print_gcode: If True, all GCodes sent over serial are printed
     :return: Instance of SwiftAPIWrapper
     """
 
@@ -183,15 +190,11 @@ class SwiftAPIWrapper(SwiftAPI):
     self._pushed_speed = []
     self._pushed_acceleration = []
 
-    super().__init__(do_not_open=True, **kwargs)
+    super().__init__(do_not_open=True, print_gcode=print_gcode, port=port, **kwargs)
     if connect:
       self.connect()
     elif simulate:
       self._setup()
-
-  def _log_verbose(self, msg):
-    if self._verbose:
-      print(msg)
 
   '''
   SETTINGS, UTILS, and MODES
@@ -210,7 +213,7 @@ class SwiftAPIWrapper(SwiftAPI):
     Connect to the serial port of the connected uArm device
     :return: self
     """
-    self._log_verbose('connect')
+    logger.debug('connect')
     if self.is_simulating():
       raise RuntimeError(
         'uArm is in \"simulate\" mode, cannot connect to device')
@@ -227,7 +230,7 @@ class SwiftAPIWrapper(SwiftAPI):
     Disconnect from the serial port of the connected uArm device
     :return: self
     """
-    self._log_verbose('disconnect')
+    logger.debug('disconnect')
     if self.is_simulating():
       raise RuntimeError(
         'uArm is in \"simulate\" mode, cannot disconnect from device')
@@ -242,12 +245,12 @@ class SwiftAPIWrapper(SwiftAPI):
     return bool(self._simulating)
 
   def _test_device_info(self):
-    self._log_verbose('_test_device_info')
+    logger.debug('_test_device_info')
     if self.is_simulating():
       raise RuntimeError(
         'uArm is in \"simulate\" mode, cannot test device info')
     info = self.get_device_info()
-    self._log_verbose(info)
+    logger.debug(info)
     dt = info.get('device_type')
     if not dt or dt != UARM_DEVICE_TYPE:
       raise RuntimeError('Device type should be {0}, but got {1}'.format(
@@ -258,7 +261,7 @@ class SwiftAPIWrapper(SwiftAPI):
         fw, UARM_ALLOWED_FIRMWARE_VERSIONS))
 
   def _setup(self):
-    self._log_verbose('_setup')
+    logger.debug('_setup')
     if not self.is_simulating():
       self.flush_cmd()
       self.waiting_ready()
@@ -295,7 +298,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :param set_pos: If True, the target position will be resent as a move command until is has been arrived to
     :return: self
     """
-    self._log_verbose('wait')
+    logger.debug('wait')
     if self.is_simulating():
       return self
     start_time = time.time()
@@ -318,7 +321,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :param new_mode: Can be either "general" or "pen_gripper"
     :return: self
     """
-    self._log_verbose('mode: {0}'.format(new_mode))
+    logger.debug('mode: {0}'.format(new_mode))
     if new_mode not in UARM_MODE_TO_CODE.keys():
       raise ValueError('Unknown mode: {0}'.format(new_mode))
     self._mode_str = new_mode
@@ -333,13 +336,13 @@ class SwiftAPIWrapper(SwiftAPI):
     Set the speed of the connected uArm device, in psuedo millimeters/second
     :return: self
     """
-    self._log_verbose('speed: {0}'.format(speed))
+    logger.debug('speed: {0}'.format(speed))
     if speed < UARM_MIN_SPEED:
       speed = UARM_MIN_SPEED
-      self._log_verbose('speed changed to: {0}'.format(speed))
+      logger.debug('speed changed to: {0}'.format(speed))
     if speed > UARM_MAX_SPEED:
       speed = UARM_MAX_SPEED
-      self._log_verbose('speed changed to: {0}'.format(speed))
+      logger.debug('speed changed to: {0}'.format(speed))
     self._speed = speed
     return self
 
@@ -348,13 +351,13 @@ class SwiftAPIWrapper(SwiftAPI):
     Set the acceleration of the connected uArm device, in psuedo millimeters/second/second
     :return: self
     """
-    self._log_verbose('acceleration: {0}'.format(acceleration))
+    logger.debug('acceleration: {0}'.format(acceleration))
     if acceleration < UARM_MIN_ACCELERATION:
       acceleration = UARM_MIN_ACCELERATION
-      self._log_verbose('acceleration changed to: {0}'.format(acceleration))
+      logger.debug('acceleration changed to: {0}'.format(acceleration))
     if acceleration > UARM_MAX_ACCELERATION:
       acceleration = UARM_MAX_ACCELERATION
-      self._log_verbose('acceleration changed to: {0}'.format(acceleration))
+      logger.debug('acceleration changed to: {0}'.format(acceleration))
     self._acceleration = acceleration
     if not self.is_simulating():
       self.set_acceleration(acc=self._acceleration)
@@ -365,21 +368,21 @@ class SwiftAPIWrapper(SwiftAPI):
     Retrieve the current XYZ coordinate position from the connected uArm device
     :return: self
     """
-    self._log_verbose('update_position')
+    logger.debug('update_position')
     if self.is_simulating():
       return self
     pos = self.get_position(wait=True)
     is_n = pos is None
     is_l = isinstance(pos, list)
     if is_n or not is_l or not len(pos) or not isinstance(pos[0], float):
-      print('Not able to read position, out of bounds')
+      logger.debug('Not able to read position, out of bounds')
       return self
     self._pos = {
       'x': round(pos[0], 2),
       'y': round(pos[1], 2),
       'z': round(pos[2], 2)
     }
-    self._log_verbose('New Position: {0}'.format(self._pos))
+    logger.debug('New Position: {0}'.format(self._pos))
     return self
 
   def get_base_angle(self):
@@ -415,7 +418,7 @@ class SwiftAPIWrapper(SwiftAPI):
   '''
 
   def can_move_to(self, x=None, y=None, z=None):
-    self._log_verbose('can_move_to: x={0}, y={1}, z={2}'.format(x, y, z))
+    logger.debug('can_move_to: x={0}, y={1}, z={2}'.format(x, y, z))
     if self.is_simulating():
       return True  # no way to test during simulation
     new_pos = self._pos.copy()
@@ -432,7 +435,7 @@ class SwiftAPIWrapper(SwiftAPI):
     return not bool(unreachable)
 
   def can_move_relative(self, x=None, y=None, z=None):
-    self._log_verbose('can_move_relative: x={0}, y={1}, z={2}'.format(x, y, z))
+    logger.debug('can_move_relative: x={0}, y={1}, z={2}'.format(x, y, z))
     new_pos = self._pos.copy()
     if x is not None:
       new_pos['x'] = round(x + new_pos['x'], 2)
@@ -451,7 +454,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :param check: If True, asks the connected uArm device if the target coordinate is within its range of movement
     :return: self
     """
-    self._log_verbose('move_to: x={0}, y={1}, z={2}'.format(x, y, z))
+    logger.debug('move_to: x={0}, y={1}, z={2}'.format(x, y, z))
     if not self._enabled:
       self.enable_all_motors()
     new_pos = self._pos.copy()
@@ -480,7 +483,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :param check: If True, asks the connected uArm device if the target coordinate is within its range of movement
     :return: self
     """
-    self._log_verbose('move_relative: x={0}, y={1}, z={2}'.format(x, y, z))
+    logger.debug('move_relative: x={0}, y={1}, z={2}'.format(x, y, z))
     kwargs = {'check': check}
     if x is not None:
       kwargs['x'] = round(x + self._pos['x'], 2)
@@ -502,13 +505,13 @@ class SwiftAPIWrapper(SwiftAPI):
     :param wait: If True, will wait for the connected uArm device to finish processing the command
     :return: self
     """
-    self._log_verbose('rotate_to')
+    logger.debug('rotate_to')
     if angle < UARM_MIN_WRIST_ANGLE:
       angle = UARM_MIN_WRIST_ANGLE
-      self._log_verbose('angle changed to: {0}'.format(angle))
+      logger.debug('angle changed to: {0}'.format(angle))
     if angle > UARM_MAX_WRIST_ANGLE:
       angle = UARM_MAX_WRIST_ANGLE
-      self._log_verbose('angle changed to: {0}'.format(angle))
+      logger.debug('angle changed to: {0}'.format(angle))
     self._wrist_angle = angle
     # previous move command will return before it has arrived at destination
     if wait:
@@ -529,7 +532,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :param wait: If True, will wait for the connected uArm device to finish processing the command
     :return: self
     """
-    self._log_verbose('rotate_relative')
+    logger.debug('rotate_relative')
     angle = self._wrist_angle + angle
     self.rotate_to(angle=angle, sleep=sleep, wait=wait)
     return self
@@ -539,7 +542,7 @@ class SwiftAPIWrapper(SwiftAPI):
     Turn off the connected uArm's base stepper motor
     :return: self
     """
-    self._log_verbose('disable_base')
+    logger.debug('disable_base')
     if not self.is_simulating():
       self.set_servo_detach(UARM_MOTOR_IDS['base'], wait=True)
     self._enabled = False
@@ -550,7 +553,7 @@ class SwiftAPIWrapper(SwiftAPI):
     Turn off all the connected uArm's stepper motors
     :return: self
     """
-    self._log_verbose('disable_all_motors')
+    logger.debug('disable_all_motors')
     if not self.is_simulating():
       self.set_servo_detach(None, wait=True)
     self._enabled = False
@@ -561,7 +564,7 @@ class SwiftAPIWrapper(SwiftAPI):
     Turn on all the connected uArm's stepper motors
     :return: self
     """
-    self._log_verbose('enable_all_motors')
+    logger.debug('enable_all_motors')
     if not self.is_simulating():
       self.set_servo_attach(None, wait=True)
     self._enabled = True
@@ -576,7 +579,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :param sleep: (optional) number of seconds to wait after the sending the command, default is 0.2 seconds
     :return: self
     """
-    self._log_verbose('pump: {0}'.format(enable))
+    logger.debug('pump: {0}'.format(enable))
     if self._mode_str != 'general':
       raise RuntimeError(
         'Must be in \"general\" to user pump')
@@ -595,7 +598,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :param sleep: (optional) number of seconds to wait after the sending the command, default is 2 seconds
     :return: self
     """
-    self._log_verbose('grip: {0}'.format(enable))
+    logger.debug('grip: {0}'.format(enable))
     if self._mode_str != 'pen_gripper':
       raise RuntimeError(
         'Must be in \"pen_gripper\" to user gripper')
@@ -612,7 +615,7 @@ class SwiftAPIWrapper(SwiftAPI):
     Check to see if the pump's limit switch is being pressed
     :return: True if the switch is pressed, else False
     """
-    self._log_verbose('is_pressing')
+    logger.debug('is_pressing')
     if self._mode_str != 'general':
       raise RuntimeError(
         'Must be in \"general\" mode to test if pressing something')
@@ -629,7 +632,7 @@ class SwiftAPIWrapper(SwiftAPI):
     Reset the connected uArm device, and move it to a safe position, one axis at a time
     :return: self
     """
-    self._log_verbose('home')
+    logger.debug('home')
     self.push_settings()
     self.speed(UARM_HOME_SPEED)
     self.acceleration(UARM_HOME_ACCELERATION)
@@ -661,7 +664,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :return: self
     """
     # TODO: see if `register_limit_switch_callback()` can be used to halt
-    self._log_verbose('probe')
+    logger.debug('probe')
     self.push_settings()
     self.speed(speed)
     # move down until we hit the limit switch
