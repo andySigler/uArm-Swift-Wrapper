@@ -315,7 +315,7 @@ class SwiftAPIWrapper(SwiftAPI):
     raise TimeoutError(
       'Unable to arrive within {1} seconds'.format(timeout))
 
-  def mode(self, new_mode):
+  def mode(self, new_mode='general'):
     """
     Set the uArm device mode
     :param new_mode: Can be either "general" or "pen_gripper"
@@ -331,7 +331,7 @@ class SwiftAPIWrapper(SwiftAPI):
     self.update_position()
     return self
 
-  def speed(self, speed):
+  def speed(self, speed=UARM_DEFAULT_SPEED):
     """
     Set the speed of the connected uArm device, in psuedo millimeters/second
     :return: self
@@ -346,7 +346,7 @@ class SwiftAPIWrapper(SwiftAPI):
     self._speed = speed
     return self
 
-  def acceleration(self, acceleration):
+  def acceleration(self, acceleration=UARM_DEFAULT_ACCELERATION):
     """
     Set the acceleration of the connected uArm device, in psuedo millimeters/second/second
     :return: self
@@ -572,7 +572,7 @@ class SwiftAPIWrapper(SwiftAPI):
     self.update_position()
     return self
 
-  def pump(self, enable, sleep=None):
+  def pump(self, enable=False, sleep=None):
     """
     Turn on all the connected uArm's stepper motors
     :param enable: If True the pump turns on, else if False the pump turns off
@@ -591,7 +591,7 @@ class SwiftAPIWrapper(SwiftAPI):
     time.sleep(sleep)
     return self
 
-  def grip(self, enable, sleep=None):
+  def grip(self, enable=False, sleep=None):
     """
     Turn on all the connected uArm's stepper motors
     :param enable: If True the gripper turns on, else if False the gripper turns off

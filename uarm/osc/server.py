@@ -34,8 +34,7 @@ class SwiftAPIWrapperOSCException(Exception):
 def _uarm_osc_server_call_method(robot, attr_str, *args, **kwargs):
   if not hasattr(robot, attr_str):
     raise SwiftAPIWrapperOSCException(
-      '{0} does not have method: {1}'.format(
-        robot.__class__.__name__, attr_str))
+      '{0} does not have method: {1}'.format(SwiftAPIWrapper, attr_str))
   try:
     attr = getattr(robot, attr_str)
     if callable(attr):
@@ -44,6 +43,23 @@ def _uarm_osc_server_call_method(robot, attr_str, *args, **kwargs):
       return attr
   except Exception as e:
     return e
+
+
+def uarm_osc_server_gen_manifest():
+  manifest = {}
+  for attr in dir(SwiftAPIWrapper):
+    for parent in SwiftAPIWrapper.__bases__:
+      if attr not in dir(parent) and not attr.startswith('_'):
+        manifest[attr] = {
+          'method': attr,
+          'arguments': []
+        }
+        func = getattr(SwiftAPIWrapper, attr)
+        if callable(func):
+          arg_count = func.__code__.co_argcount
+          arg_names = func.__code__.co_varnames
+          func_args = arg_names[1:arg_count]
+          manifest[attr]['arguments'] = func_args
 
 
 def _uarm_osc_server_format_internal_args(robot, method, args, kwargs):
@@ -147,6 +163,21 @@ def _uarm_osc_server_handler(osc_ip, osc_uri, default_args, *osc_args):
     logger.exception('Error handling OSC filter: {0}'.format(osc_uri))
 
 
+def uarm_osc_server_gen_manifest():
+  manifest = {}
+  for attr in dir(SwiftAPIWrapper):
+    for parent in SwiftAPIWrapper.__bases__:
+      if attr not in dir(parent) and not attr.startswith('_'):
+        manifest[attr] = {'method': attr, 'arguments': []}
+        func = getattr(SwiftAPIWrapper, attr)
+        if callable(func):
+          arg_count = func.__code__.co_argcount
+          arg_names = func.__code__.co_varnames
+          func_args = arg_names[1:arg_count]
+          manifest[attr]['arguments'] = func_args
+  return manifest
+
+
 def uarm_osc_server(robot, ip=None, port=None):
   if not isinstance(robot, SwiftAPIWrapper):
     raise TypeError(
@@ -156,11 +187,10 @@ def uarm_osc_server(robot, ip=None, port=None):
     ip = SWIFT_API_WRAPPER_OSC_DEFAULT_IP
   if port is None:
     port = SWIFT_API_WRAPPER_OSC_DEFAULT_PORT_SERVER
+  # auto-register all methods as OSC handlers
   disp = dispatcher.Dispatcher()
-  for attr in dir(robot.__class__):
-    for parent in robot.__class__.__bases__:
-      if attr not in dir(parent) and not attr.startswith('_'):
-        _uarm_osc_server_register(disp, robot, attr)
+  for method in uarm_osc_server_gen_manifest().keys():
+    _uarm_osc_server_register(disp, robot, method)
   logger.info('Serving at {ip}:{port}'.format(
     ip=ip, port=port))
   return osc_server.ThreadingOSCUDPServer((ip, port), disp)

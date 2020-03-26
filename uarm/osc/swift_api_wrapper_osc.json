@@ -1,0 +1,151 @@
+{
+    "acceleration": {
+        "method": "acceleration",
+        "arguments": [
+            "acceleration"
+        ]
+    },
+    "can_move_relative": {
+        "method": "can_move_relative",
+        "arguments": [
+            "x",
+            "y",
+            "z"
+        ]
+    },
+    "can_move_to": {
+        "method": "can_move_to",
+        "arguments": [
+            "x",
+            "y",
+            "z"
+        ]
+    },
+    "disable_all_motors": {
+        "method": "disable_all_motors",
+        "arguments": []
+    },
+    "disable_base": {
+        "method": "disable_base",
+        "arguments": []
+    },
+    "enable_all_motors": {
+        "method": "enable_all_motors",
+        "arguments": []
+    },
+    "get_base_angle": {
+        "method": "get_base_angle",
+        "arguments": []
+    },
+    "grip": {
+        "method": "grip",
+        "arguments": [
+            "enable",
+            "sleep"
+        ]
+    },
+    "home": {
+        "method": "home",
+        "arguments": []
+    },
+    "is_pressing": {
+        "method": "is_pressing",
+        "arguments": []
+    },
+    "is_simulating": {
+        "method": "is_simulating",
+        "arguments": []
+    },
+    "move_relative": {
+        "method": "move_relative",
+        "arguments": [
+            "x",
+            "y",
+            "z",
+            "check"
+        ]
+    },
+    "move_to": {
+        "method": "move_to",
+        "arguments": [
+            "x",
+            "y",
+            "z",
+            "check"
+        ]
+    },
+    "pop_settings": {
+        "method": "pop_settings",
+        "arguments": []
+    },
+    "position": {
+        "method": "position",
+        "arguments": []
+    },
+    "probe": {
+        "method": "probe",
+        "arguments": [
+            "step",
+            "speed"
+        ]
+    },
+    "pump": {
+        "method": "pump",
+        "arguments": [
+            "enable",
+            "sleep"
+        ]
+    },
+    "push_settings": {
+        "method": "push_settings",
+        "arguments": []
+    },
+    "rotate_relative": {
+        "method": "rotate_relative",
+        "arguments": [
+            "angle",
+            "sleep",
+            "wait"
+        ]
+    },
+    "rotate_to": {
+        "method": "rotate_to",
+        "arguments": [
+            "angle",
+            "sleep",
+            "wait"
+        ]
+    },
+    "sleep": {
+        "method": "sleep",
+        "arguments": []
+    },
+    "speed": {
+        "method": "speed",
+        "arguments": [
+            "speed"
+        ]
+    },
+    "update_position": {
+        "method": "update_position",
+        "arguments": []
+    },
+    "wait_for_arrival": {
+        "method": "wait_for_arrival",
+        "arguments": [
+            "timeout",
+            "set_pos"
+        ]
+    },
+    "wait_for_touch": {
+        "method": "wait_for_touch",
+        "arguments": [
+            "distance",
+            "timeout"
+        ]
+    },
+    "wrist_angle": {
+        "method": "wrist_angle",
+        "arguments": []
+    }
+}
