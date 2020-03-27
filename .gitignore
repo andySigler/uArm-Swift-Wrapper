@@ -6,3 +6,4 @@ build/
 dist/
 *.egg-info/
 examples/debug/
+.hardware_settings

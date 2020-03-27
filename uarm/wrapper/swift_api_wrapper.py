@@ -1,9 +1,13 @@
+import copy
+import json
 import logging
 import math
+import os
 import time
 
 from serial.tools.list_ports import comports
-from . import SwiftAPI
+from uarm.wrapper import SwiftAPI
+import uarm.swift.protocol as PROTOCOL
 
 
 logger = logging.getLogger('uarm.swiftapi.wrapper')
@@ -30,10 +34,10 @@ UARM_CODE_TO_MODE = {
 }
 
 UARM_MOTOR_IDS = {
-  'base': 0,
-  'shoulder': 1,
-  'elbow': 2,
-  'wrist': 3
+  'base': PROTOCOL.SERVO_BOTTOM,
+  'shoulder': PROTOCOL.SERVO_LEFT,
+  'elbow': PROTOCOL.SERVO_RIGHT,
+  'wrist': PROTOCOL.SERVO_HAND
 }
 
 # SPEED
@@ -73,6 +77,17 @@ UARM_DEFAULT_PROBE_STEP = 1
 
 # TOUCH DETECT
 UARM_DEFAULT_TOUCH_THRESH_MM = 0.25
+
+# SAVED HARDWARE SETTINGS
+UARM_HARDWARE_SETTINGS_FILE_NAME = 'uarm_hardware_settings.json'
+UARM_HARDWARE_SETTINGS_DIRECTORY = '.hardware_settings'
+UARM_HARDWARE_SETTINGS_ADDRESS_START = 0 # arbitrary
+UARM_HARDWARE_SETTINGS_ADDRESS_OFFSET = 10
+UARM_DEFAULT_HARDWARE_SETTINGS = {
+  'z_offset': 0,
+  'mode': copy.copy(UARM_MODE_TO_CODE['general']),
+  'wrist_offset': 0
+}
 
 
 def _is_uarm_port(port_info):
@@ -155,7 +170,7 @@ def uarm_scan_and_connect(print_gcode=False, **kwargs):
 class SwiftAPIWrapper(SwiftAPI):
 
   def __init__(self,
-               port=None,
+               port='simulate',
                connect=False,
                simulate=False,
                print_gcode=False,
@@ -177,18 +192,20 @@ class SwiftAPIWrapper(SwiftAPI):
 
     self._enabled = False  # safer to assume motors are disabled
     self._simulating = simulate
-    self._port = kwargs.get('port', 'unknown')
+    self._port = port
 
     # run self.update_position() to get real position from uArm
     self._pos = UARM_HOME_SIMULATE_POS.copy()
     self._wrist_angle = UARM_DEFAULT_WRIST_ANGLE
 
-    self._mode_str = UARM_DEFAULT_MODE
-    self._mode_code = UARM_MODE_TO_CODE[self._mode_str]
     self._speed = UARM_DEFAULT_SPEED
     self._acceleration = UARM_DEFAULT_ACCELERATION
     self._pushed_speed = []
     self._pushed_acceleration = []
+
+    self._hardware_settings = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
+    self._hardware_id = 'simulate'
+    self._hardware_settings_dir = None
 
     super().__init__(do_not_open=True, print_gcode=print_gcode, port=port, **kwargs)
     if connect:
@@ -259,14 +276,21 @@ class SwiftAPIWrapper(SwiftAPI):
     if not fw or fw not in UARM_ALLOWED_FIRMWARE_VERSIONS:
       raise RuntimeError('Device FW version {0} not within {1}'.format(
         fw, UARM_ALLOWED_FIRMWARE_VERSIONS))
+    hw_id = info.get('device_unique')
+    if not hw_id:
+      raise RuntimeError('Device HW ID not accessible')
+    self._hardware_id = hw_id
+    return self
 
   def _setup(self):
     logger.debug('_setup')
     if not self.is_simulating():
       self.flush_cmd()
       self.waiting_ready()
+      self._load_hardware_settings()
     self.set_speed_factor(UARM_DEFAULT_SPEED_FACTOR)
-    self.mode(self._mode_str)
+    self.mode(self.hardware_settings['mode'])
+    self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
     return self
 
   def push_settings(self):
@@ -302,13 +326,14 @@ class SwiftAPIWrapper(SwiftAPI):
     if self.is_simulating():
       return self
     start_time = time.time()
-    if self.flush_cmd(timeout=timeout, wait_stop=True) == 'OK':
+    if self.flush_cmd(timeout=timeout, wait_stop=True) == PROTOCOL.OK:
       return self
     self.waiting_ready(timeout=timeout)
+    set_pos_pos = self._remove_z_offset(self._pos)
     while time.time() - start_time < timeout:
       # sending these commands while moving will make uArm much less smooth
       if set_pos:
-        self.move_to(check=False, **self._pos)
+        self.move_to(check=False, **set_pos_pos)
       time.sleep(0.02)
       if not self.get_is_moving(wait=True):
         return self
@@ -321,13 +346,14 @@ class SwiftAPIWrapper(SwiftAPI):
     :param new_mode: Can be either "general" or "pen_gripper"
     :return: self
     """
+    if isinstance(new_mode, int):
+      new_mode = UARM_CODE_TO_MODE.get(new_mode)
     logger.debug('mode: {0}'.format(new_mode))
     if new_mode not in UARM_MODE_TO_CODE.keys():
       raise ValueError('Unknown mode: {0}'.format(new_mode))
-    self._mode_str = new_mode
-    self._mode_code = UARM_MODE_TO_CODE[self._mode_str]
+    self._save_hardware_settings(mode=new_mode)
     if not self.is_simulating():
-      self.set_mode(UARM_MODE_TO_CODE[self._mode_str])
+      self.set_mode(UARM_MODE_TO_CODE[new_mode])
     self.update_position()
     return self
 
@@ -363,6 +389,14 @@ class SwiftAPIWrapper(SwiftAPI):
       self.set_acceleration(acc=self._acceleration)
     return self
 
+  def _apply_z_offset(self, pos):
+    pos['z'] += self.hardware_settings['z_offset']
+    return pos
+
+  def _remove_z_offset(self, pos):
+    pos['z'] -= self.hardware_settings['z_offset']
+    return pos
+
   def update_position(self):
     """
     Retrieve the current XYZ coordinate position from the connected uArm device
@@ -377,11 +411,11 @@ class SwiftAPIWrapper(SwiftAPI):
     if is_n or not is_l or not len(pos) or not isinstance(pos[0], float):
       logger.debug('Not able to read position, out of bounds')
       return self
-    self._pos = {
+    self._pos = self._apply_z_offset({
       'x': round(pos[0], 2),
       'y': round(pos[1], 2),
       'z': round(pos[2], 2)
-    }
+    })
     logger.debug('New Position: {0}'.format(self._pos))
     return self
 
@@ -403,7 +437,7 @@ class SwiftAPIWrapper(SwiftAPI):
     Get the current XYZ coordinate position
     :return: Dictionary with keys "x", "y", and "z", and float values for millimeter positions
     """
-    return self._pos.copy()
+    return copy.copy(self._pos)
 
   @property
   def wrist_angle(self):
@@ -411,7 +445,102 @@ class SwiftAPIWrapper(SwiftAPI):
     Retrieve the current wrist angle of the servo motor
     :return: Angle in degrees, 90 is center
     """
-    return float(self._wrist_angle)
+    return copy.copy(self._wrist_angle)
+
+  def _set_wrist_offset(self, wrist_offset=0):
+    real_angle = self.wrist_angle + self.hardware_settings['wrist_offset']
+    self._save_hardware_settings(wrist_offset=wrist_offset)
+    self._wrist_angle = real_angle - self.hardware_settings['wrist_offset']
+    return self
+
+  def wrist_offset_reset(self):
+    self._set_wrist_offset(wrist_offset=0)
+    return self
+
+  def wrist_is_centered(self):
+    real_angle = self.wrist_angle + self.hardware_settings['wrist_offset']
+    wrist_offset = real_angle - UARM_DEFAULT_WRIST_ANGLE
+    self._set_wrist_offset(wrist_offset=wrist_offset)
+    return self
+
+  @property
+  def hardware_settings(self):
+    return copy.deepcopy({
+      key: value
+      for key, value in self._hardware_settings.items()
+    })
+
+  @property
+  def hardware_settings_path(self):
+    settings_dir = self._hardware_settings_dir
+    if settings_dir is None:
+      local_file = os.path.join(os.getcwd(), UARM_HARDWARE_SETTINGS_FILE_NAME)
+      if os.path.isfile(local_file):
+        self._hardware_settings_dir = os.getcwd()
+        return local_file
+    if settings_dir is None:
+      settings_dir = os.path.dirname(os.path.realpath(__file__))
+      settings_dir = os.path.join(
+        settings_dir, '..', UARM_HARDWARE_SETTINGS_DIRECTORY)
+      settings_dir = os.path.abspath(settings_dir)
+    file_path = os.path.join(settings_dir, UARM_HARDWARE_SETTINGS_FILE_NAME)
+    return file_path
+
+  def hardware_settings_set_directory(self, directory=None):
+    if directory is None:
+      return
+    if not os.path.isdir(directory):
+      raise ValueError('Directory does not exist: {0}'.format(directory))
+    self._hardware_settings_dir = directory
+
+  def hardware_settings_reset(self):
+    self._hardware_settings = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
+    self._save_hardware_settings()
+    return self
+
+  def _init_hardware_settings(self):
+    file_path = self.hardware_settings_path
+    if not os.path.isdir(os.path.dirname(file_path)):
+      os.mkdir(os.path.dirname(file_path))
+    if not os.path.isfile(file_path):
+      init_data = {'simulate': UARM_DEFAULT_HARDWARE_SETTINGS}
+      if self._hardware_id != 'simulate':
+        init_data[self._hardware_id] = self._hardware_settings
+      settings_json = json.dumps(init_data, indent=4)
+      with open(file_path, 'w') as f:
+        f.write(settings_json)
+    return self
+
+  def _save_hardware_settings(self, **kwargs):
+    for key, value in kwargs.items():
+      if key in self._hardware_settings:
+        self._hardware_settings[key] = value
+    if self.is_simulating():
+      return self
+    self._init_hardware_settings()
+    file_path = self.hardware_settings_path
+    read_data = None
+    with open(file_path, 'r') as f:
+      read_data = f.read()
+    read_data = json.loads(read_data)
+    read_data[self._hardware_id] = self.hardware_settings
+    write_data = json.dumps(read_data, indent=4)
+    with open(file_path, 'w') as f:
+      f.write(write_data)
+    return self
+
+  def _load_hardware_settings(self):
+    if self.is_simulating():
+      return self
+    self._init_hardware_settings()
+    file_path = self.hardware_settings_path
+    read_data = None
+    with open(file_path, 'r') as f:
+      read_data = f.read()
+    read_data = json.loads(read_data)
+    self._hardware_settings = read_data.get(
+      self._hardware_id, UARM_DEFAULT_HARDWARE_SETTINGS)
+    return self
 
   '''
   ATOMIC COMMANDS
@@ -431,6 +560,7 @@ class SwiftAPIWrapper(SwiftAPI):
     # Send coordinates to uArm to see if they are within the limit.
     # This must be done on the device itself, because of it's weird
     # coordinate system and load-carrying ability at different positions.
+    new_pos = self._remove_z_offset(new_pos)
     unreachable = self.check_pos_is_limit(list(new_pos.values()))
     return not bool(unreachable)
 
@@ -445,7 +575,7 @@ class SwiftAPIWrapper(SwiftAPI):
       new_pos['z'] = round(z + new_pos['z'], 2)
     return self.can_move_to(**new_pos)
 
-  def move_to(self, x=None, y=None, z=None, check=False):
+  def move_to(self, x=None, y=None, z=None, check=False, translate=True):
     """
     Move to an absolute cartesian coordinate
     :param x: Cartesian millimeter of the X axis, if None then uses current position
@@ -464,14 +594,35 @@ class SwiftAPIWrapper(SwiftAPI):
       new_pos['y'] = round(y, 2)
     if z is not None:
       new_pos['z'] = round(z, 2)
+    if translate:
+      real_pos = self._remove_z_offset(new_pos)
+    else:
+      real_pos = new_pos.copy()
     if not self.is_simulating():
-      if check and not self.can_move_to(**new_pos):
+      if check and not self.can_move_to(**real_pos):
         raise RuntimeError(
           'Coordinate not reachable by uArm: {0}'.format(new_pos))
       speed_mm_per_min = self._speed * 60
-      self.set_position(relative=False, speed=speed_mm_per_min, **new_pos)
+      self.set_position(relative=False, speed=speed_mm_per_min, **real_pos)
 
     self._pos = new_pos.copy()
+    return self
+
+  def _set_z_offset(self, z_offset=0):
+    real_z = self.position['z'] + self.hardware_settings['z_offset']
+    self._save_hardware_settings(z_offset=z_offset)
+    self._pos['z'] = real_z - self.hardware_settings['z_offset']
+    return self
+
+  def z_offset_reset(self):
+    self._set_wrist_offset(wrist_offset=0)
+    return self
+
+  def z_is_level(self):
+    self.update_position()
+    real_z = self.position['z'] + self.hardware_settings['z_offset']
+    z_offset = -real_z
+    self._set_z_offset(z_offset=z_offset)
     return self
 
   def move_relative(self, x=None, y=None, z=None, check=False):
@@ -497,7 +648,7 @@ class SwiftAPIWrapper(SwiftAPI):
     return self
 
   def rotate_to(self, angle=UARM_DEFAULT_WRIST_ANGLE,
-                sleep=UARM_DEFAULT_WRIST_SLEEP, wait=True):
+                sleep=UARM_DEFAULT_WRIST_SLEEP, wait=True, translate=True):
     """
     Rotate the wrist's servo motor to a angle, in degrees
     :param angle: The target servo angle in degrees, 90 is center
@@ -512,15 +663,19 @@ class SwiftAPIWrapper(SwiftAPI):
     if angle > UARM_MAX_WRIST_ANGLE:
       angle = UARM_MAX_WRIST_ANGLE
       logger.debug('angle changed to: {0}'.format(angle))
-    self._wrist_angle = angle
     # previous move command will return before it has arrived at destination
     if wait:
       self.wait_for_arrival()
     # speed has no affect, b/c servo motors are controlled by PWM
     # so from the device's perspective, the change is instantaneous
     if not self.is_simulating():
-      self.set_wrist(angle=angle)
+      if translate:
+        real_angle = angle + self.hardware_settings['wrist_offset']
+      else:
+        real_angle = angle
+      self.set_wrist(angle=real_angle)
       time.sleep(sleep)
+    self._wrist_angle = angle
     return self
 
   def rotate_relative(self, angle=0, sleep=UARM_DEFAULT_WRIST_SLEEP,
@@ -580,7 +735,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :return: self
     """
     logger.debug('pump: {0}'.format(enable))
-    if self._mode_str != 'general':
+    if self.hardware_settings['mode'] != 'general':
       raise RuntimeError(
         'Must be in \"general\" to user pump')
     if self.is_simulating():
@@ -599,7 +754,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :return: self
     """
     logger.debug('grip: {0}'.format(enable))
-    if self._mode_str != 'pen_gripper':
+    if self.hardware_settings['mode'] != 'pen_gripper':
       raise RuntimeError(
         'Must be in \"pen_gripper\" to user gripper')
     if self.is_simulating():
@@ -616,7 +771,7 @@ class SwiftAPIWrapper(SwiftAPI):
     :return: True if the switch is pressed, else False
     """
     logger.debug('is_pressing')
-    if self._mode_str != 'general':
+    if self.hardware_settings['mode'] != 'general':
       raise RuntimeError(
         'Must be in \"general\" mode to test if pressing something')
     if self.is_simulating():
@@ -638,12 +793,12 @@ class SwiftAPIWrapper(SwiftAPI):
     self.acceleration(UARM_HOME_ACCELERATION)
     # move to a know absolute position first, or else the follow
     # servo-angle commands will act unpredictably
-    self.move_to(**UARM_HOME_START_POS).wait_for_arrival()
-    self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
+    self.move_to(translate=False, **UARM_HOME_START_POS)
+    self.wait_for_arrival(set_pos=False)
     # move to the "safe" position, where it is safe to disable all motors
     # using angles ensures it's the same regardless of mode (coordinate system)
     if self.is_simulating():
-      self.move_to(**UARM_HOME_SIMULATE_POS)
+      self.move_to(translate=False, **UARM_HOME_SIMULATE_POS)
     else:
       for m_id in UARM_HOME_ORDER:
         self.set_servo_angle(
@@ -654,6 +809,7 @@ class SwiftAPIWrapper(SwiftAPI):
     if not self.is_simulating():
       time.sleep(0.25) # give it an extra time to ensure position is settled
     self.update_position()
+    self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
     return self
 
   def probe(self, step=UARM_DEFAULT_PROBE_STEP, speed=UARM_DEFAULT_PROBE_SPEED):
@@ -678,11 +834,10 @@ class SwiftAPIWrapper(SwiftAPI):
     Home the connected uArm device, and then disable all motors
     :return: self
     """
-    if self._mode_str == 'general':
+    if self.hardware_settings['mode'] == 'general':
       self.pump(False, sleep=0)
-    elif self._mode_str == 'pen_gripper':
+    elif self.hardware_settings['mode'] == 'pen_gripper':
       self.grip(False, sleep=0)
-    self.rotate_to(angle=UARM_DEFAULT_WRIST_ANGLE, sleep=0)
     self.home().disable_all_motors()
 
   def wait_for_touch(self, distance=None, timeout=None):

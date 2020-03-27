@@ -1097,7 +1097,10 @@ class Swift(Pump, Keys, Gripper, Grove):
     def get_rom_data(self, address, data_type=None, wait=True, timeout=None, callback=None):
         def _handle(_ret, _callback=None):
             if _ret[0] == protocol.OK:
-                _ret = int(_ret[1][1:]) if data_type != protocol.EEPROM_DATA_TYPE_FLOAT else float(_ret[1][1:])
+                if len(_ret) == 1:
+                    _ret = protocol.OK
+                else:
+                    _ret = int(_ret[1][1:]) if data_type != protocol.EEPROM_DATA_TYPE_FLOAT else float(_ret[1][1:])
             elif _ret != protocol.TIMEOUT:
                 _ret = _ret[0]
             if callable(_callback):
