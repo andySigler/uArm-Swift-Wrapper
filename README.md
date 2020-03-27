@@ -2,6 +2,14 @@
 
 ![uArm-Swift-Pro](doc/uarm-swift-pro.jpg)
 
+- [Overview](#overview)
+- [Examples](#examples)
+- [API Reference](#api-reference)
+- [Quirks](#quirks)
+- [Features Wishlist](#features-wishlist)
+- [Installation](#installation)
+- [Firmware Update](#firmware-update)
+
 ## Overview
 
 This project is a fork and thin wrapper around the [uArm-Python-SDK](https://github.com/uArm-Developer/uArm-Python-SDK) from uFactory. The goal of this fork is to create a more intuitive and easier to use set of controls for the [uArm Swift/SwiftPro](https://store.ufactory.cc/products/uarm), built on-top of the original Python API from uFactory.
@@ -36,6 +44,12 @@ Some simple examples are included to show how the API wrapper can easily be used
 
 (The original examples by uFactory [can be found here](examples/api/))
 
+## API Reference
+
+The [API reference documentation can be found here](doc/api/swift_api_wrapper.md), which include methods and attributes of the `SwiftAPIWrapper` class. (The original API documentation by uFactory for their `SwiftAPI` class [can be found here](doc/api/swift_api.md))
+
+This repository also include PDF guides distrubuted by uFactory, which are located in [this folder](doc/manuals).
+
 ## Quirks
 
 The uArm Swift Pro has a few unique attributes and behaviors, which need to be understood before using the device. [Here is a document](./QUIRKS.md) describing the quirks and issues I've found while developing on this device.
@@ -51,22 +65,30 @@ The uArm Swift Pro has a few unique attributes and behaviors, which need to be u
 
 It is recommended to read through this list before using the uArm Swift Pro and this Python wrapper.
 
-## Desired Features
+## Features Wishlist
 
-Keeping track of features to be added to this wrapper:
+Keeping track of features to be added to this wrapper.
 
-- Auto-adjust for skipped steps using built-in rotary encoders
-- API control over OSC (Open Sound Control)
-- Libraries (for control over OSC) in Python, Javascript (HTML5/NodeJS/P5.js), and Max/MSP/Jitter
-- User-motion recording (with motors off), and on-device motion playback
+- ~~Hardware settings (Z-offset, wrist-offset, etc.) stored between sessions~~
+- User-motion recording (motors off), and on-device motion playback (motors on)
 - Camera tracking helpers (camera offset/rotation translation; pixel to millimeter conversion)
 
+#### Features that Require Firmware Modifications
 
-## API Reference
+- Detect skipped steps and auto-adjust, using built-in rotary encoders
+- Save hardware settings (Z-offset, wrist-offset, etc.) to device ROM
 
-The [API reference documentation can be found here](doc/api/swift_api_wrapper.md), which include methods and attributes of the `SwiftAPIWrapper` class. (The original API documentation by uFactory for their `SwiftAPI` class [can be found here](doc/api/swift_api.md))
+#### Control Over Network
 
-This repository also include PDF guides distrubuted by uFactory, which are located in [this folder](doc/manuals).
+Feature ideas for being able to run API methods over a network. The goal being that the uArm can be controlled from a web browser or tools like NodeJS, Max/MSP/Jitter, and P5.js
+
+- Remote control over:
+    - ~~OSC~~
+    - Websocket
+- Remote client libraries:
+    - NodeJS (Websockets & OSC)
+    - Browser (Websockets)
+    - Max/MSP/Jitter (OSC)
 
 ## Installation
 
