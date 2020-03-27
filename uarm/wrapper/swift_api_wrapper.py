@@ -465,19 +465,19 @@ class SwiftAPIWrapper(SwiftAPI):
 
   @property
   def hardware_settings(self):
-    return copy.deepcopy({
-      key: value
-      for key, value in self._hardware_settings.items()
-    })
+    return copy.deepcopy(self._hardware_settings)
 
   @property
   def hardware_settings_path(self):
     settings_dir = self._hardware_settings_dir
+    # default to using a locally saved settings file (if present)
     if settings_dir is None:
       local_file = os.path.join(os.getcwd(), UARM_HARDWARE_SETTINGS_FILE_NAME)
       if os.path.isfile(local_file):
         self._hardware_settings_dir = os.getcwd()
         return local_file
+    # fallback to using pre-defined folder for storing hardware settings
+    # TODO: change to an OS-defined user-data folder
     if settings_dir is None:
       settings_dir = os.path.dirname(os.path.realpath(__file__))
       settings_dir = os.path.join(
@@ -511,18 +511,26 @@ class SwiftAPIWrapper(SwiftAPI):
         f.write(settings_json)
     return self
 
+  def _read_hardware_settings(self, file_path):
+    read_data = None
+    with open(file_path, 'r') as f:
+      read_data = f.read()
+    try:
+      read_data = json.loads(read_data)
+    except:
+      read_data = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
+    for key, item in UARM_DEFAULT_HARDWARE_SETTINGS.items():
+      if key not in read_data:
+        read_data[key] = copy.deepcopy(item)
+    return read_data
+
   def _save_hardware_settings(self, **kwargs):
     for key, value in kwargs.items():
       if key in self._hardware_settings:
         self._hardware_settings[key] = value
-    if self.is_simulating():
-      return self
     self._init_hardware_settings()
     file_path = self.hardware_settings_path
-    read_data = None
-    with open(file_path, 'r') as f:
-      read_data = f.read()
-    read_data = json.loads(read_data)
+    read_data = self._read_hardware_settings(file_path)
     read_data[self._hardware_id] = self.hardware_settings
     write_data = json.dumps(read_data, indent=4)
     with open(file_path, 'w') as f:
@@ -530,16 +538,11 @@ class SwiftAPIWrapper(SwiftAPI):
     return self
 
   def _load_hardware_settings(self):
-    if self.is_simulating():
-      return self
     self._init_hardware_settings()
     file_path = self.hardware_settings_path
-    read_data = None
-    with open(file_path, 'r') as f:
-      read_data = f.read()
-    read_data = json.loads(read_data)
+    read_data = read_data = self._read_hardware_settings(file_path)
     self._hardware_settings = read_data.get(
-      self._hardware_id, UARM_DEFAULT_HARDWARE_SETTINGS)
+      self._hardware_id, copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
     return self
 
   '''
