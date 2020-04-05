@@ -84,6 +84,7 @@ UARM_HARDWARE_SETTINGS_DIRECTORY = '.hardware_settings'
 UARM_HARDWARE_SETTINGS_ADDRESS_START = 0 # arbitrary
 UARM_HARDWARE_SETTINGS_ADDRESS_OFFSET = 10
 UARM_DEFAULT_HARDWARE_SETTINGS = {
+  'id': 'simulate',
   'z_offset': 0,
   'mode': copy.copy(UARM_MODE_TO_CODE['general']),
   'wrist_offset': 0
@@ -204,7 +205,6 @@ class SwiftAPIWrapper(SwiftAPI):
     self._pushed_acceleration = []
 
     self._hardware_settings = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
-    self._hardware_id = 'simulate'
     self._hardware_settings_dir = None
 
     super().__init__(do_not_open=True, print_gcode=print_gcode, port=port, **kwargs)
@@ -279,7 +279,7 @@ class SwiftAPIWrapper(SwiftAPI):
     hw_id = info.get('device_unique')
     if not hw_id:
       raise RuntimeError('Device HW ID not accessible')
-    self._hardware_id = hw_id
+    self._hardware_settings['id'] = hw_id
     return self
 
   def _setup(self):
@@ -412,10 +412,14 @@ class SwiftAPIWrapper(SwiftAPI):
       logger.debug('Not able to read position, out of bounds')
       return self
     self._pos = self._apply_z_offset({
-      'x': round(pos[0], 2),
-      'y': round(pos[1], 2),
-      'z': round(pos[2], 2)
+      'x': pos[0],
+      'y': pos[1],
+      'z': pos[2]
     })
+    self._pos = {
+      ax: round(self._pos[ax], 3)
+      for ax in 'xyz'
+    }
     logger.debug('New Position: {0}'.format(self._pos))
     return self
 
@@ -504,8 +508,8 @@ class SwiftAPIWrapper(SwiftAPI):
       os.mkdir(os.path.dirname(file_path))
     if not os.path.isfile(file_path):
       init_data = {'simulate': UARM_DEFAULT_HARDWARE_SETTINGS}
-      if self._hardware_id != 'simulate':
-        init_data[self._hardware_id] = self._hardware_settings
+      if self._hardware_settings['id'] != 'simulate':
+        init_data[self._hardware_settings['id']] = self._hardware_settings
       settings_json = json.dumps(init_data, indent=4)
       with open(file_path, 'w') as f:
         f.write(settings_json)
@@ -531,7 +535,7 @@ class SwiftAPIWrapper(SwiftAPI):
     self._init_hardware_settings()
     file_path = self.hardware_settings_path
     read_data = self._read_hardware_settings(file_path)
-    read_data[self._hardware_id] = self.hardware_settings
+    read_data[self._hardware_settings['id']] = self.hardware_settings
     write_data = json.dumps(read_data, indent=4)
     with open(file_path, 'w') as f:
       f.write(write_data)
@@ -542,7 +546,7 @@ class SwiftAPIWrapper(SwiftAPI):
     file_path = self.hardware_settings_path
     read_data = read_data = self._read_hardware_settings(file_path)
     self._hardware_settings = read_data.get(
-      self._hardware_id, copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
+      self._hardware_settings['id'], copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
     return self
 
   '''
@@ -850,6 +854,9 @@ class SwiftAPIWrapper(SwiftAPI):
     :param timeout: number of seconds to wait for a touch event, default is forever
     :return: self
     """
+    if self.is_simulating():
+      # just don't even bother if simulating, return immediately
+      return self
     self.wait_for_arrival(set_pos=self._enabled)
     start_time = time.time()
     self.update_position()

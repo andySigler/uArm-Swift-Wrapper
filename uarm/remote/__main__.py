@@ -2,9 +2,9 @@ import argparse
 import logging
 
 from uarm.wrapper.swift_api_wrapper import uarm_create
-from .server import uarm_osc_server
-from .server import SWIFT_API_WRAPPER_OSC_DEFAULT_IP
-from .server import SWIFT_API_WRAPPER_OSC_DEFAULT_PORT_SERVER
+from .uarm_osc_server import uarm_osc_server
+from .uarm_osc_server import SWIFT_API_WRAPPER_OSC_DEFAULT_IP
+from .uarm_osc_server import SWIFT_API_WRAPPER_OSC_DEFAULT_PORT_SERVER
 
 
 def run_testing_client(ip, port):
