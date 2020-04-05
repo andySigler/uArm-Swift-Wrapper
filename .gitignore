@@ -7,3 +7,5 @@ dist/
 *.egg-info/
 examples/debug/
 .hardware_settings
+*uarm_hardware_settings.json
+*uarm_recordings.json

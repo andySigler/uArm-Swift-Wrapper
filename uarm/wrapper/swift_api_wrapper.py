@@ -8,6 +8,7 @@ import time
 from serial.tools.list_ports import comports
 from uarm.wrapper import SwiftAPI
 import uarm.swift.protocol as PROTOCOL
+from uarm.record import Recorder
 
 
 logger = logging.getLogger('uarm.swiftapi.wrapper')
@@ -89,6 +90,9 @@ UARM_DEFAULT_HARDWARE_SETTINGS = {
   'mode': copy.copy(UARM_MODE_TO_CODE['general']),
   'wrist_offset': 0
 }
+
+# SAVED RECORDINGS
+UARM_HARDWARE_RECORDINGS_FILE_NAME = 'uarm_recordings.json'
 
 
 def _is_uarm_port(port_info):
@@ -172,6 +176,7 @@ class SwiftAPIWrapper(SwiftAPI):
 
   def __init__(self,
                port='simulate',
+               settings_dir=None,
                connect=False,
                simulate=False,
                print_gcode=False,
@@ -207,7 +212,11 @@ class SwiftAPIWrapper(SwiftAPI):
     self._hardware_settings = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
     self._hardware_settings_dir = None
 
+    self._recorder = None
+
     super().__init__(do_not_open=True, print_gcode=print_gcode, port=port, **kwargs)
+    if settings_dir:
+      self.set_settings_directory(settings_dir)
     if connect:
       self.connect()
     elif simulate:
@@ -287,7 +296,7 @@ class SwiftAPIWrapper(SwiftAPI):
     if not self.is_simulating():
       self.flush_cmd()
       self.waiting_ready()
-      self._load_hardware_settings()
+      self._init_settings()
     self.set_speed_factor(UARM_DEFAULT_SPEED_FACTOR)
     self.mode(self.hardware_settings['mode'])
     self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
@@ -472,37 +481,44 @@ class SwiftAPIWrapper(SwiftAPI):
     return copy.deepcopy(self._hardware_settings)
 
   @property
-  def hardware_settings_path(self):
+  def settings_directory(self):
     settings_dir = self._hardware_settings_dir
+    if settings_dir:
+      return settings_dir
     # default to using a locally saved settings file (if present)
-    if settings_dir is None:
-      local_file = os.path.join(os.getcwd(), UARM_HARDWARE_SETTINGS_FILE_NAME)
-      if os.path.isfile(local_file):
-        self._hardware_settings_dir = os.getcwd()
-        return local_file
+    local_file = os.path.join(os.getcwd(), UARM_HARDWARE_SETTINGS_FILE_NAME)
+    if os.path.isfile(local_file):
+      return os.getcwd()
     # fallback to using pre-defined folder for storing hardware settings
     # TODO: change to an OS-defined user-data folder
-    if settings_dir is None:
-      settings_dir = os.path.dirname(os.path.realpath(__file__))
-      settings_dir = os.path.join(
-        settings_dir, '..', UARM_HARDWARE_SETTINGS_DIRECTORY)
-      settings_dir = os.path.abspath(settings_dir)
-    file_path = os.path.join(settings_dir, UARM_HARDWARE_SETTINGS_FILE_NAME)
-    return file_path
+    settings_dir = os.path.dirname(os.path.realpath(__file__))
+    settings_dir = os.path.join(
+      settings_dir, '..', UARM_HARDWARE_SETTINGS_DIRECTORY)
+    return os.path.abspath(settings_dir)
 
-  def hardware_settings_set_directory(self, directory=None):
+  def set_settings_directory(self, directory=None):
     if directory is None:
       return
     if not os.path.isdir(directory):
       raise ValueError('Directory does not exist: {0}'.format(directory))
     self._hardware_settings_dir = directory
 
+  @property
+  def hardware_settings_path(self):
+    return os.path.join(
+      self.settings_directory, UARM_HARDWARE_SETTINGS_FILE_NAME)
+
+  @property
+  def recordings_path(self):
+    return os.path.join(
+      self.settings_directory, UARM_HARDWARE_RECORDINGS_FILE_NAME)
+
   def hardware_settings_reset(self):
     self._hardware_settings = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
     self._save_hardware_settings()
     return self
 
-  def _init_hardware_settings(self):
+  def _init_hardware_settings_file(self):
     file_path = self.hardware_settings_path
     if not os.path.isdir(os.path.dirname(file_path)):
       os.mkdir(os.path.dirname(file_path))
@@ -532,7 +548,7 @@ class SwiftAPIWrapper(SwiftAPI):
     for key, value in kwargs.items():
       if key in self._hardware_settings:
         self._hardware_settings[key] = value
-    self._init_hardware_settings()
+    self._init_hardware_settings_file()
     file_path = self.hardware_settings_path
     read_data = self._read_hardware_settings(file_path)
     read_data[self._hardware_settings['id']] = self.hardware_settings
@@ -541,12 +557,13 @@ class SwiftAPIWrapper(SwiftAPI):
       f.write(write_data)
     return self
 
-  def _load_hardware_settings(self):
-    self._init_hardware_settings()
+  def _init_settings(self):
+    self._init_hardware_settings_file()
     file_path = self.hardware_settings_path
     read_data = read_data = self._read_hardware_settings(file_path)
     self._hardware_settings = read_data.get(
       self._hardware_settings['id'], copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
+    self._recorder = Recorder(self.recordings_path)
     return self
 
   '''
@@ -876,3 +893,31 @@ class SwiftAPIWrapper(SwiftAPI):
       moved = math.sqrt(sums)
       if moved > distance:
         return self
+
+  '''
+  RECORD/PLAYBACK COMMANDS
+  '''
+  def record(self,
+             name,
+             overwrite=False,
+             check=True,
+             method=None,
+             still_seconds=1,
+             still_distance=1):
+    self._recorder.record(self,
+                          name,
+                          overwrite=overwrite,
+                          check=check,
+                          method=method,
+                          still_seconds=still_seconds,
+                          still_distance=still_distance)
+    return self
+
+  def playback(self, name, relative=False, speed=None, check=False):
+    self._recorder.playback(
+      self, name, relative=relative, speed=speed, check=check)
+    return self
+
+  def process_recording(self, name, filter=False, max_angle=None):
+    self._recorder.process(name, filter=filter, max_angle=max_angle)
+    return self

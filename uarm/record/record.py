@@ -131,6 +131,7 @@ class Recorder(object):
     save_data['time']['duration'] = round(_end_time - _start_time, 3)
     self._data[name] = save_data
     self._save_data()
+    self.process(name)
     return self
 
 
@@ -240,8 +241,8 @@ if __name__ == '__main__':
   recorder.record(robot, 'test1')
 
   def _get_input(poses, pos, moving):
-    res = input('R=record, X=stop: ')
-    if 'r' in res.lower():
+    res = input('ENTER=record, X+ENTER=stop: ')
+    if len(res) == 0:
       return True
     elif 'x' in res.lower():
       return False
@@ -254,7 +255,7 @@ if __name__ == '__main__':
   for name in ['test1', 'test2']:
     robot.home()
     print('{0}: Unfiltered Coordinates'.format(name))
-    recorder.process(name)
+    recorder.process(name, filter=False)
     recorder.playback(robot, name)
     robot.home()
     print('{0}: Filtered Coordinates'.format(name))

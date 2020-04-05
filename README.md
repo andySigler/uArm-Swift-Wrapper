@@ -40,6 +40,7 @@ Some simple examples are included to show how the API wrapper can easily be used
 - [Disable the Motors](examples/api-wrapper/disable_motors.py)
 - [Read the Position](examples/api-wrapper/position.py)
 - [Chaining Commands](examples/api-wrapper/command_chaining.py)
+- [Recording and Playback Movements](examples/api-wrapper/record.py)
 - [Using Original SwiftAPI Commands](examples/api-wrapper/original_swift_api.py)
 
 (The original examples by uFactory [can be found here](examples/api/))
@@ -70,7 +71,7 @@ It is recommended to read through this list before using the uArm Swift Pro and 
 Keeping track of features to be added to this wrapper.
 
 - ~~Hardware settings (Z-offset, wrist-offset, etc.) stored between sessions~~
-- User-motion recording (motors off), and on-device motion playback (motors on)
+- ~~User-motion recording (motors off), and on-device motion playback (motors on)~~
 - Camera tracking helpers (camera offset/rotation translation; pixel to millimeter conversion)
 
 #### Features that Require Firmware Modifications
