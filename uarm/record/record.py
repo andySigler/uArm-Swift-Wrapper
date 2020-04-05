@@ -62,6 +62,7 @@ class Recorder(object):
              robot,
              name,
              overwrite=False,
+             check=True,
              method=None,
              still_seconds=1,
              still_distance=1):
@@ -106,15 +107,19 @@ class Recorder(object):
         return False
 
     if method is None:
-      method = lambda poses, pos, moving: moving
+      method = lambda robot, poses, moving: moving
 
     # make sure the motors are turned off
     robot.disable_all_motors()
     _start_time = round(time.time(), 3)
-    robot.update_position()
-    while method(copy.deepcopy(_recorded_poses), robot.position, _is_moving()):
-      _add_position(robot.position)
+    while method(robot, copy.deepcopy(_recorded_poses), _is_moving()):
       robot.update_position()
+      if check and not robot.can_move_to(**robot.position):
+        logger.info(
+          'uArm not able to move to position: {0}'.format(robot.position))
+        break
+      else:
+        _add_position(robot.position)
     _end_time = round(time.time(), 3)
 
     # save list of positions to disk
@@ -176,28 +181,35 @@ class Recorder(object):
     self._processed_data[name] = rich_data
     return self
 
-  def playback(self, robot, name, relative=False):
+  def playback(self, robot, name, relative=False, speed=None, check=False):
     if name not in self._processed_data:
       raise ValueError('Recording not found: {0}'.format(name))
     data = copy.deepcopy(self._processed_data[name])
+    samples = data['samples']
+    if not len(samples):
+      return self
     if relative:
       # get the relative offset from the robot's current position
       abs_start = robot.position
       pos_offset = {
-        ax: abs_start[ax] - data['samples'][0]['start'][ax]
+        ax: abs_start[ax] - samples[0]['start'][ax]
         for ax in 'xyz'
       }
       # add that offset to all start and end samples positions
-      for i in range(len(data['samples'])):
+      for i in range(len(samples)):
         for pos in ['start', 'end']:
-          data['samples'][i][pos] = {
-            ax: data['samples'][i][pos][ax] + pos_offset[ax]
+          samples[i][pos] = {
+            ax: samples[i][pos][ax] + pos_offset[ax]
             for ax in 'xyz'
           }
     robot.push_settings()
-    robot.move_to(**data['samples'][0]['start'])
-    for s in data['samples']:
-      robot.speed(s['speed']).move_to(**s['end'])
+    robot.move_to(**samples[0]['start'], check=check)
+    if speed is not None:
+      robot.speed(speed)
+    for s in samples:
+      if speed is None:
+        robot.speed(s['speed'])
+      robot.move_to(**s['end'], check=check)
       # TODO: include sleeps to make sure time is correct
     robot.pop_settings()
     return self
@@ -205,21 +217,49 @@ class Recorder(object):
 
 if __name__ == '__main__':
   from uarm import uarm_scan_and_connect
+
+  # setup logging
+  test_logger = logging.getLogger('uarm.swiftapi.record')
+  test_logger.setLevel(logging.INFO)
+  ch = logging.StreamHandler()
+  ch.setLevel(logging.INFO)
+  formatter = logging.Formatter('%(asctime)s - %(message)s')
+  ch.setFormatter(formatter)
+  test_logger.addHandler(ch)
+
   dir_path = os.path.dirname(os.path.realpath(__file__))
   file_path = os.path.join(dir_path, 'temp.json')
   if os.path.isfile(file_path):
     os.remove(file_path)
+
   robot = uarm_scan_and_connect()
   recorder = Recorder(file_path)
-  print('Waiting for touch...')
+
+  print('Record with default motion detection. Waiting for touch...')
   robot.wait_for_touch()
-  recorder.record(robot, 'test')
-  print('Unfiltered Coordinates')
-  recorder.process('test', filter=False)
-  recorder.playback(robot, 'test')
-  robot.home()
-  print('Filtered Coordinates')
-  recorder.process('test')
-  recorder.playback(robot, 'test')
+  recorder.record(robot, 'test1')
+
+  def _get_input(poses, pos, moving):
+    res = input('R=record, X=stop: ')
+    if 'r' in res.lower():
+      return True
+    elif 'x' in res.lower():
+      return False
+    else:
+      return _get_input(poses, pos, moving)
+
+  print('Recording with keyboard input...')
+  recorder.record(robot, 'test2', method=_get_input)
+
+  for name in ['test1', 'test2']:
+    robot.home()
+    print('{0}: Unfiltered Coordinates'.format(name))
+    recorder.process(name, filter=False)
+    recorder.playback(robot, name)
+    robot.home()
+    print('{0}: Filtered Coordinates'.format(name))
+    recorder.process(name)
+    recorder.playback(robot, name)
+
   robot.sleep()
   os.remove(file_path)
