@@ -134,7 +134,7 @@ class Recorder(object):
     return self
 
 
-  def process(self, name, filter=True, max_angle=None):
+  def process(self, name, filter=False, max_angle=None):
 
     def _create_rich_data(samples):
       # add 'duration', 'distance', 'speed', 'start', and 'end' properties
@@ -254,11 +254,11 @@ if __name__ == '__main__':
   for name in ['test1', 'test2']:
     robot.home()
     print('{0}: Unfiltered Coordinates'.format(name))
-    recorder.process(name, filter=False)
+    recorder.process(name)
     recorder.playback(robot, name)
     robot.home()
     print('{0}: Filtered Coordinates'.format(name))
-    recorder.process(name)
+    recorder.process(name, filter=True)
     recorder.playback(robot, name)
 
   robot.sleep()
