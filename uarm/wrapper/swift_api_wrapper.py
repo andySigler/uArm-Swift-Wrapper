@@ -789,6 +789,16 @@ class SwiftAPIWrapper(SwiftAPI):
     time.sleep(sleep)
     return self
 
+  def is_gripping(self):
+    if self.is_simulating():
+      return False
+    return bool(self.get_gripper_catch() > 0)
+
+  def is_pumping(self):
+    if self.is_simulating():
+      return False
+    return bool(self.get_pump_status() > 0)
+
   def is_pressing(self):
     """
     Check to see if the pump's limit switch is being pressed
