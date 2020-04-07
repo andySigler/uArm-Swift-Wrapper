@@ -74,6 +74,7 @@ The uArm Swift Pro has a few unique attributes and behaviors, which need to be u
 - [Overheating](./QUIRKS.md#overheating)
 - [Positions and Encoders](./QUIRKS.md#positions-and-encoders)
 - [Reachable Coordinates](./QUIRKS.md#reachable-coordinates)
+- [Buttons and GPIO Nonfunctional](./QUIRKS.md#buttons-and-gpio-nonfunctional)
 - [Arched Movements](./QUIRKS.md#arched-movements)
 - [Occasional Pauses](./QUIRKS.md#occasional-pauses)
 - [Camera Mounting](./QUIRKS.md#camera-mounting)
