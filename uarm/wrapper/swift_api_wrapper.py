@@ -440,9 +440,11 @@ class SwiftAPIWrapper(SwiftAPI):
     # this shouldn't be calculated but instead retrieved from device
     # because there could be an offset applied to the endtool, which determines
     # the cartesian coordinate position
-    angle = self.get_servo_angle(UARM_MOTOR_IDS['base'])
+    degree = self.get_servo_angle(UARM_MOTOR_IDS['base'])
     # map angle to match Y cartesian behavior (center=0, +Y=+Angle, etc.)
-    return (90 - angle) * -1
+    degree = (90 - degree) * -1
+    radian = round((degree / 180) * math.pi, 3)
+    return radian
 
   @property
   def position(self):
