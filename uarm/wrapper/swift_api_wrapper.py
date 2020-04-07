@@ -913,6 +913,10 @@ class SwiftAPIWrapper(SwiftAPI):
                           still_distance=still_distance)
     return self
 
+  def erase(self, name):
+    self._recorder.erase(name)
+    return self
+
   def playback(self, name, relative=False, speed=None, check=False):
     self._recorder.playback(
       self, name, relative=relative, speed=speed, check=check)
