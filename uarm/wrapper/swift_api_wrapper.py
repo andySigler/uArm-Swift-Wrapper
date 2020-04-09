@@ -25,8 +25,8 @@ UARM_USB_HWID = '2341:0042'
 UARM_DEFAULT_MODE = 'general'
 UARM_MODE_TO_CODE = {
   'general': 0,
-  # 'laser': 1,
-  # '3d_printer': 2,
+  'laser': 1,
+  '3d_printer': 2,
   'pen_gripper': 3
 }
 UARM_CODE_TO_MODE = {
