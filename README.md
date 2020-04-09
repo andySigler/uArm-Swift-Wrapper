@@ -30,11 +30,13 @@ The wrapper also adds the ability to record and playback movements, through user
 robot = uarm_scan_and_connect()
 robot.home()
 robot.playback('move-to-pen-holder')
-robot.grip(True).playback('pick-up-pen')
+robot.grip(True)
+robot.playback('pick-up-pen')
 robot.move_to(x=150, y=0, z=0)
 robot.playback('draw-happy-face', relative=True)
 robot.playback('move-to-pen-holder')
-robot.grip(False).playback('release-pen')
+robot.grip(False)
+robot.playback('release-pen')
 robot.sleep()
 ```
 
@@ -55,6 +57,7 @@ Some simple examples are included to show how the API wrapper can easily be used
 - [Read the Position](examples/api-wrapper/position.py)
 - [Chaining Commands](examples/api-wrapper/command_chaining.py)
 - [Recording and Playback Movements](examples/api-wrapper/record.py)
+- [Remote Control Over a Network](examples/remote/README.md)
 - [Using Original SwiftAPI Commands](examples/api-wrapper/original_swift_api.py)
 
 (The original examples by uFactory [can be found here](examples/api/))
