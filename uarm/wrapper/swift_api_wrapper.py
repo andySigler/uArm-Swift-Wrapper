@@ -298,7 +298,7 @@ class SwiftAPIWrapper(SwiftAPI):
       self.waiting_ready()
       self._init_settings()
     self.set_speed_factor(UARM_DEFAULT_SPEED_FACTOR)
-    self.mode(self.hardware_settings['mode'])
+    self.tool_mode(self.hardware_settings['mode'])
     self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
     return self
 
@@ -349,7 +349,7 @@ class SwiftAPIWrapper(SwiftAPI):
     raise TimeoutError(
       'Unable to arrive within {1} seconds'.format(timeout))
 
-  def mode(self, new_mode='general'):
+  def tool_mode(self, new_mode='general'):
     """
     Set the uArm device mode
     :param new_mode: Can be either "general" or "pen_gripper"

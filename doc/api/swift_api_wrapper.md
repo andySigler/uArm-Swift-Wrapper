@@ -1,31 +1,30 @@
 Python Library Documentation: function uarm_create in module uarm.wrapper.swift_api_wrapper
 
-#### def uarm_create(verbose=False, verbose_serial=False, **kwargs):
+#### def uarm_create(**kwargs):
 
 ```
 Helper method for creating instances of SwiftAPIWrapper
-:param verbose: If True, enables SwiftAPIWrapper printing of debug messages
-:param verbose_serial: If True, enables printing of all GCode messages sent over serial
+:param port: Serial port of the uArm
+:param connect: If True, will auto-connect to serial port
+:param print_gcode: If True, enables printing of all GCode messages sent over serial
 :return: instance of SwiftAPIWrapper
 ```
 Python Library Documentation: function uarm_scan in module uarm.wrapper.swift_api_wrapper
 
-#### def uarm_scan(verbose=False, verbose_serial=False, **kwargs):
+#### def uarm_scan(print_gcode=False, **kwargs):
 
 ```
 Helper method for discovering serial ports for, and creating instances of, SwiftAPIWrapper
-:param verbose: If True, enables SwiftAPIWrapper printing of debug messages
-:param verbose_serial: If True, enables printing of all GCode messages sent over serial
+:param print_gcode: If True, enables printing of all GCode messages sent over serial
 :return: list of disconnected instances of SwiftAPIWrapper, found connected over a serial port
 ```
 Python Library Documentation: function uarm_scan_and_connect in module uarm.wrapper.swift_api_wrapper
 
-#### def uarm_scan_and_connect(verbose=False, verbose_serial=False, **kwargs):
+#### def uarm_scan_and_connect(print_gcode=False, **kwargs):
 
 ```
 Helper method for discovering serial port, creating instances, and connecting to SwiftAPIWrapper
-:param verbose: If True, enables SwiftAPIWrapper printing of debug messages
-:param verbose_serial: If True, enables printing of all GCode messages sent over serial
+:param print_gcode: If True, enables printing of all GCode messages sent over serial
 :return: Connected instance of SwiftAPIWrapper, found connected over a serial port
 ```
 Python Library Documentation: class SwiftAPIWrapper in module uarm.wrapper.swift_api_wrapper
@@ -35,6 +34,10 @@ Python Library Documentation: class SwiftAPIWrapper in module uarm.wrapper.swift
 
 ### descriptors
 ****************************************
+#### hardware_settings
+
+#### hardware_settings_path
+
 #### port
 Get the serial port of the connected uArm device
 :return: The serial port as a string, or "unknown" is none was set
@@ -43,28 +46,39 @@ Get the serial port of the connected uArm device
 Get the current XYZ coordinate position
 :return: Dictionary with keys "x", "y", and "z", and float values for millimeter positions
 
+#### recordings_path
+
+#### settings_directory
+
 #### wrist_angle
 Retrieve the current wrist angle of the servo motor
 :return: Angle in degrees, 90 is center
 
 ### methods
 ****************************************
-#### def __init__(self, connect=False, simulate=False, **kwargs):
+#### def __init__(self, port='simulate', settings_dir=None, connect=False, simulate=False, print_gcode=False, **kwargs):
 
 ```
 The API wrapper of SwiftAPI, which in turn wraps the Swift and SwiftPro
+:param port: optional, the serial port of the uArm as appears on the OS
 :param connect: If True, will auto-connect to the serial port
 :param simulate: If True, this instance will not connect to serial port, but will process all methods pretending that is is connected to a uArm
-:param port: optional, the serial port of the uArm as appears on the OS
+:param print_gcode: If True, all GCodes sent over serial are printed
 :return: Instance of SwiftAPIWrapper
 ```
 
-#### def acceleration(self, acceleration):
+#### def acceleration(self, acceleration=5):
 
 ```
 Set the acceleration of the connected uArm device, in psuedo millimeters/second/second
 :return: self
 ```
+
+#### def can_move_relative(self, x=None, y=None, z=None):
+
+
+#### def can_move_to(self, x=None, y=None, z=None):
+
 
 #### def connect(self, *args, **kwargs):
 
@@ -101,6 +115,9 @@ Turn on all the connected uArm's stepper motors
 :return: self
 ```
 
+#### def erase(self, name):
+
+
 #### def get_base_angle(self):
 
 ```
@@ -108,7 +125,7 @@ Retrieve the current angle in degrees of the base motor from the connected uArm 
 :return: angle in degrees, 90 is center
 ```
 
-#### def grip(self, enable, sleep=None):
+#### def grip(self, enable=False, sleep=None):
 
 ```
 Turn on all the connected uArm's stepper motors
@@ -117,12 +134,18 @@ Turn on all the connected uArm's stepper motors
 :return: self
 ```
 
+#### def hardware_settings_reset(self):
+
+
 #### def home(self):
 
 ```
 Reset the connected uArm device, and move it to a safe position, one axis at a time
 :return: self
 ```
+
+#### def is_gripping(self):
+
 
 #### def is_pressing(self):
 
@@ -131,19 +154,14 @@ Check to see if the pump's limit switch is being pressed
 :return: True if the switch is pressed, else False
 ```
 
+#### def is_pumping(self):
+
+
 #### def is_simulating(self):
 
 ```
 Check whether this instance of SwiftAPIWrapper is simulating or not
 :return: True is simulating, else False
-```
-
-#### def mode(self, new_mode):
-
-```
-Set the uArm device mode
-:param new_mode: Can be either "general" or "pen_gripper"
-:return: self
 ```
 
 #### def move_relative(self, x=None, y=None, z=None, check=False):
@@ -157,7 +175,7 @@ Move to a relative cartesian coordinate, away from it's current coordinate
 :return: self
 ```
 
-#### def move_to(self, x=None, y=None, z=None, check=False):
+#### def move_to(self, x=None, y=None, z=None, check=False, translate=True):
 
 ```
 Move to an absolute cartesian coordinate
@@ -167,6 +185,9 @@ Move to an absolute cartesian coordinate
 :param check: If True, asks the connected uArm device if the target coordinate is within its range of movement
 :return: self
 ```
+
+#### def playback(self, name, relative=False, speed=None, check=False):
+
 
 #### def pop_settings(self):
 
@@ -184,7 +205,10 @@ Move the connected uArm device down until the pump's limit switch is being press
 :return: self
 ```
 
-#### def pump(self, enable, sleep=None):
+#### def process_recording(self, name, filter=False, max_angle=None):
+
+
+#### def pump(self, enable=False, sleep=None):
 
 ```
 Turn on all the connected uArm's stepper motors
@@ -200,6 +224,9 @@ Save the current speed and accleration values, for retrieval later by `pop_setti
 :return: self
 ```
 
+#### def record(self, name, overwrite=False, check=True, method=None, still_seconds=1, still_distance=1):
+
+
 #### def rotate_relative(self, angle=0, sleep=0.25, wait=True):
 
 ```
@@ -210,7 +237,7 @@ Rotate the wrist's servo motor by a relative angle, in degrees
 :return: self
 ```
 
-#### def rotate_to(self, angle=90, sleep=0.25, wait=True):
+#### def rotate_to(self, angle=90, sleep=0.25, wait=True, translate=True):
 
 ```
 Rotate the wrist's servo motor to a angle, in degrees
@@ -220,6 +247,9 @@ Rotate the wrist's servo motor to a angle, in degrees
 :return: self
 ```
 
+#### def set_settings_directory(self, directory=None):
+
+
 #### def sleep(self):
 
 ```
@@ -227,10 +257,18 @@ Home the connected uArm device, and then disable all motors
 :return: self
 ```
 
-#### def speed(self, speed):
+#### def speed(self, speed=150):
 
 ```
 Set the speed of the connected uArm device, in psuedo millimeters/second
+:return: self
+```
+
+#### def tool_mode(self, new_mode='general'):
+
+```
+Set the uArm device mode
+:param new_mode: Can be either "general" or "pen_gripper"
 :return: self
 ```
 
@@ -258,3 +296,15 @@ Monitor the position of all motors to detect if the uArm has been touched, poten
 :param timeout: number of seconds to wait for a touch event, default is forever
 :return: self
 ```
+
+#### def wrist_is_centered(self):
+
+
+#### def wrist_offset_reset(self):
+
+
+#### def z_is_level(self):
+
+
+#### def z_offset_reset(self):
+

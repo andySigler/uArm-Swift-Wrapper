@@ -33,6 +33,12 @@
         "method": "enable_all_motors",
         "arguments": []
     },
+    "erase": {
+        "method": "erase",
+        "arguments": [
+            "name"
+        ]
+    },
     "get_base_angle": {
         "method": "get_base_angle",
         "arguments": []
@@ -44,12 +50,32 @@
             "sleep"
         ]
     },
+    "hardware_settings": {
+        "method": "hardware_settings",
+        "arguments": []
+    },
+    "hardware_settings_path": {
+        "method": "hardware_settings_path",
+        "arguments": []
+    },
+    "hardware_settings_reset": {
+        "method": "hardware_settings_reset",
+        "arguments": []
+    },
     "home": {
         "method": "home",
         "arguments": []
     },
+    "is_gripping": {
+        "method": "is_gripping",
+        "arguments": []
+    },
     "is_pressing": {
         "method": "is_pressing",
+        "arguments": []
+    },
+    "is_pumping": {
+        "method": "is_pumping",
         "arguments": []
     },
     "is_simulating": {
@@ -71,6 +97,16 @@
             "x",
             "y",
             "z",
+            "check",
+            "translate"
+        ]
+    },
+    "playback": {
+        "method": "playback",
+        "arguments": [
+            "name",
+            "relative",
+            "speed",
             "check"
         ]
     },
@@ -89,6 +125,14 @@
             "speed"
         ]
     },
+    "process_recording": {
+        "method": "process_recording",
+        "arguments": [
+            "name",
+            "filter",
+            "max_angle"
+        ]
+    },
     "pump": {
         "method": "pump",
         "arguments": [
@@ -98,6 +142,21 @@
     },
     "push_settings": {
         "method": "push_settings",
+        "arguments": []
+    },
+    "record": {
+        "method": "record",
+        "arguments": [
+            "name",
+            "overwrite",
+            "check",
+            "method",
+            "still_seconds",
+            "still_distance"
+        ]
+    },
+    "recordings_path": {
+        "method": "recordings_path",
         "arguments": []
     },
     "rotate_relative": {
@@ -113,8 +172,19 @@
         "arguments": [
             "angle",
             "sleep",
-            "wait"
+            "wait",
+            "translate"
         ]
+    },
+    "set_settings_directory": {
+        "method": "set_settings_directory",
+        "arguments": [
+            "directory"
+        ]
+    },
+    "settings_directory": {
+        "method": "settings_directory",
+        "arguments": []
     },
     "sleep": {
         "method": "sleep",
@@ -124,6 +194,12 @@
         "method": "speed",
         "arguments": [
             "speed"
+        ]
+    },
+    "tool_mode": {
+        "method": "tool_mode",
+        "arguments": [
+            "new_mode"
         ]
     },
     "update_position": {
@@ -146,6 +222,22 @@
     },
     "wrist_angle": {
         "method": "wrist_angle",
+        "arguments": []
+    },
+    "wrist_is_centered": {
+        "method": "wrist_is_centered",
+        "arguments": []
+    },
+    "wrist_offset_reset": {
+        "method": "wrist_offset_reset",
+        "arguments": []
+    },
+    "z_is_level": {
+        "method": "z_is_level",
+        "arguments": []
+    },
+    "z_offset_reset": {
+        "method": "z_offset_reset",
         "arguments": []
     }
 }
