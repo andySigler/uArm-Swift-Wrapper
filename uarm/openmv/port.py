@@ -17,16 +17,21 @@ def find_camera_port():
 
 
 class OpenMVPort(serial.Serial):
-    def __init__(self, *args, **kwargs):
-        self._stay_open = kwargs.get('stay_open', False)
-        self._min_data_length = kwargs.get(
-            'min_data_length', OPENMV_PORT_DEFAULT_MIN_DATA_LENGTH)
-        self._verbose = kwargs.get('verbose', False)
+    def __init__(self,
+                 port=None,
+                 baudrate=None,
+                 timeout=None,
+                 min_data_length=OPENMV_PORT_DEFAULT_MIN_DATA_LENGTH,
+                 stay_open=False,
+                 verbose=False):
+        self._stay_open = stay_open
+        self._min_data_length = min_data_length if min_data_length else OPENMV_PORT_DEFAULT_MIN_DATA_LENGTH
+        self._verbose = verbose
         # init PySerial before giving it port so it doesn't auto-open
         super().__init__()
-        self.port = kwargs.get('port', find_camera_port())
-        self.baudrate = kwargs.get('baudrate', OPENMV_PORT_DEFAULT_BAUDRATE)
-        self.timeout = kwargs.get('timeout', OPENMV_PORT_DEFAULT_TIMEOUT_SEC)
+        self.port = port if port else find_camera_port()
+        self.baudrate = baudrate if baudrate else OPENMV_PORT_DEFAULT_BAUDRATE
+        self.timeout = timeout if timeout else OPENMV_PORT_DEFAULT_TIMEOUT_SEC
 
     def read_json(self, retries=OPENMV_PORT_DEFAULT_RETRIES):
 

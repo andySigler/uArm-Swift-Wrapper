@@ -7,7 +7,9 @@ import time
 
 from serial.tools.list_ports import comports
 
-from uarm.offset import subtract_positions, cartesian_to_polar, round_position
+from uarm.offset.helpers import cartesian_to_polar
+from uarm.offset.helpers import round_position
+from uarm.offset.helpers import subtract_positions
 from uarm.record import Recorder
 import uarm.swift.protocol as PROTOCOL
 from uarm.wrapper import SwiftAPI
@@ -362,6 +364,9 @@ class SwiftAPIWrapper(SwiftAPI):
       self.set_mode(UARM_MODE_TO_CODE[new_mode])
     self.update_position()
     return self
+
+  def get_tool_mode(self):
+    return self.hardware_settings['mode']
 
   def speed(self, speed=UARM_DEFAULT_SPEED):
     """

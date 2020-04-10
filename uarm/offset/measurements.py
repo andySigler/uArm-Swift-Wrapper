@@ -29,16 +29,16 @@ UARM_OPENMV_GENERAL_OFFSET = {
 }
 
 
-def _get_offset_in_mode(mode, offset):
+def get_offset_in_mode(mode, offset):
   if mode not in UARM_MODE_OFFSETS.keys():
     raise ValueError('Unknown uArm mode: {0}'.format(mode))
   return {ax: offset[ax] - UARM_MODE_OFFSETS[mode][ax] for ax in 'xyz'}
 
 
 def get_pump_offset(mode='general'):
-  return _get_offset_in_mode(mode, UARM_PUMP_GENERAL_OFFSET)
+  return get_offset_in_mode(mode, UARM_PUMP_GENERAL_OFFSET)
 
 
 def get_openmv_offset(mode='general'):
-  return _get_offset_in_mode(mode, UARM_OPENMV_GENERAL_OFFSET)
+  return get_offset_in_mode(mode, UARM_OPENMV_GENERAL_OFFSET)
 
