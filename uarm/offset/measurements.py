@@ -1,5 +1,5 @@
 UARM_MODE_OFFSETS = {
-  'general': {'x': 0, 'y': 0, 'z': 0},  # global reference point
+  'general': {'x': 0.0, 'y': 0.0, 'z': 0.0},  # global reference point
   'laser': {'x': 7.75, 'y': 0.0, 'z': 23.51},
   '3d_printer': {'x': -0.15, 'y': 0.0, 'z': 0.12},
   'pen_gripper': {'x': 12.85, 'y': 0.0, 'z': 31.55}
@@ -35,10 +35,10 @@ def _get_offset_in_mode(mode, offset):
   return {ax: offset[ax] - UARM_MODE_OFFSETS[mode][ax] for ax in 'xyz'}
 
 
-def get_pump_offset(mode):
+def get_pump_offset(mode='general'):
   return _get_offset_in_mode(mode, UARM_PUMP_GENERAL_OFFSET)
 
 
-def get_openmv_offset(mode):
+def get_openmv_offset(mode='general'):
   return _get_offset_in_mode(mode, UARM_OPENMV_GENERAL_OFFSET)
 
