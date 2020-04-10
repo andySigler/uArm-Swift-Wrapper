@@ -45,23 +45,6 @@ def _uarm_osc_server_call_method(robot, attr_str, *args, **kwargs):
     return e
 
 
-def uarm_osc_server_gen_manifest():
-  manifest = {}
-  for attr in dir(SwiftAPIWrapper):
-    for parent in SwiftAPIWrapper.__bases__:
-      if attr not in dir(parent) and not attr.startswith('_'):
-        manifest[attr] = {
-          'method': attr,
-          'arguments': []
-        }
-        func = getattr(SwiftAPIWrapper, attr)
-        if callable(func):
-          arg_count = func.__code__.co_argcount
-          arg_names = func.__code__.co_varnames
-          func_args = arg_names[1:arg_count]
-          manifest[attr]['arguments'] = func_args
-
-
 def _uarm_osc_server_format_internal_args(robot, method, args, kwargs):
   disp_map_args = [None] * SWIFT_API_WRAPPER_INTERNAL_ARGS_LENGTH
   disp_map_args[SWIFT_API_WRAPPER_INTERNAL_ARGS_INDEX_ROBOT] = robot
