@@ -7,7 +7,7 @@ robot = uarm_scan_and_connect()
 robot.home()
 
 # by default, the uArm is in "general" mode, which lets you use the air-pump
-robot.mode('general') # this already default, so no need to run this
+robot.tool_mode('general') # this already default, so no need to run this
 robot.move_to(x=150, z=10)
 robot.wait_for_arrival()
 robot.pump(True)
@@ -27,7 +27,7 @@ robot.move_relative(z=100)
 robot.wait_for_arrival()
 
 # if you instead want to use the gripper, change the mode to "pen_gripper"
-robot.mode('pen_gripper')
+robot.tool_mode('pen_gripper')
 robot.move_to(x=150, z=10)
 robot.wait_for_arrival()
 robot.grip(True)

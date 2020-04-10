@@ -7,6 +7,7 @@ Below is a running list of hardware, firmware, software, and usability issues th
 - [Overheating](#overheating)
 - [Positions and Encoders](#positions-and-encoders)
 - [Reachable Coordinates](#reachable-coordinates)
+- [Buttons and GPIO Nonfunctional](#buttons-and-gpio-nonfunctional)
 - [Arched Movements](#arched-movements)
 - [Occasional Pauses](#occasional-pauses)
 - [Camera Mounting](#camera-mounting)
@@ -96,6 +97,10 @@ except RuntimeError as e:
 
 robot.move_to(x=150, y=0, z=0, check=True) # this should be OK
 ```
+
+## Buttons and GPIO Nonfunctional
+
+The uArm Swift Pro firmware version 4.0 and above have disabled the on-device buttons. These buttons were used in prior versions of the firmware to help with recording user motions, however now that they have been disabled in firmware they are not functional. I've made [an issue on their github repository](https://github.com/uArm-Developer/SwiftProForArduino/issues/14) to see if they will be bring this (and some other disabled features) back into production.
 
 ## Arched Movements
 

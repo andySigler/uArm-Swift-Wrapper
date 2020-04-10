@@ -24,6 +24,22 @@ robot.pump(False)
 robot.sleep()
 ```
 
+The wrapper also adds the ability to record and playback movements, through user-controlled motions while the motors are off. This makes orchestrating more complex motions much easier:
+
+```python
+robot = uarm_scan_and_connect()
+robot.home()
+robot.playback('move-to-pen-holder')
+robot.grip(True)
+robot.playback('pick-up-pen')
+robot.move_to(x=150, y=0, z=0)
+robot.playback('draw-happy-face', relative=True)
+robot.playback('move-to-pen-holder')
+robot.grip(False)
+robot.playback('release-pen')
+robot.sleep()
+```
+
 Because this wrapper inherits from the original Python SDK from uFactory, all of their methods and functionalities are still available through this interface.
 
 ## Examples
@@ -41,6 +57,7 @@ Some simple examples are included to show how the API wrapper can easily be used
 - [Read the Position](examples/api-wrapper/position.py)
 - [Chaining Commands](examples/api-wrapper/command_chaining.py)
 - [Recording and Playback Movements](examples/api-wrapper/record.py)
+- [Remote Control Over a Network](examples/remote/README.md)
 - [Using Original SwiftAPI Commands](examples/api-wrapper/original_swift_api.py)
 
 (The original examples by uFactory [can be found here](examples/api/))
@@ -60,6 +77,7 @@ The uArm Swift Pro has a few unique attributes and behaviors, which need to be u
 - [Overheating](./QUIRKS.md#overheating)
 - [Positions and Encoders](./QUIRKS.md#positions-and-encoders)
 - [Reachable Coordinates](./QUIRKS.md#reachable-coordinates)
+- [Buttons and GPIO Nonfunctional](./QUIRKS.md#buttons-and-gpio-nonfunctional)
 - [Arched Movements](./QUIRKS.md#arched-movements)
 - [Occasional Pauses](./QUIRKS.md#occasional-pauses)
 - [Camera Mounting](./QUIRKS.md#camera-mounting)

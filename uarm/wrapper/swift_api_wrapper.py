@@ -6,9 +6,11 @@ import os
 import time
 
 from serial.tools.list_ports import comports
-from uarm.wrapper import SwiftAPI
-import uarm.swift.protocol as PROTOCOL
+
+from uarm.offset import subtract_positions, cartesian_to_polar, round_position
 from uarm.record import Recorder
+import uarm.swift.protocol as PROTOCOL
+from uarm.wrapper import SwiftAPI
 
 
 logger = logging.getLogger('uarm.swiftapi.wrapper')
@@ -25,8 +27,8 @@ UARM_USB_HWID = '2341:0042'
 UARM_DEFAULT_MODE = 'general'
 UARM_MODE_TO_CODE = {
   'general': 0,
-  # 'laser': 1,
-  # '3d_printer': 2,
+  'laser': 1,
+  '3d_printer': 2,
   'pen_gripper': 3
 }
 UARM_CODE_TO_MODE = {
@@ -51,6 +53,9 @@ UARM_DEFAULT_SPEED = 150
 UARM_MAX_ACCELERATION = 50
 UARM_MIN_ACCELERATION = 0.01
 UARM_DEFAULT_ACCELERATION = 5
+
+# DETECTING SKIPPED STEPS
+UARM_SKIPPED_DISTANCE_THRESHOLD = 1
 
 # WRIST ANGLE
 UARM_MIN_WRIST_ANGLE = 0
@@ -200,7 +205,7 @@ class SwiftAPIWrapper(SwiftAPI):
     self._simulating = simulate
     self._port = port
 
-    # run self.update_position() to get real position from uArm
+    # run update_position() to get real position from uArm
     self._pos = UARM_HOME_SIMULATE_POS.copy()
     self._wrist_angle = UARM_DEFAULT_WRIST_ANGLE
 
@@ -298,7 +303,7 @@ class SwiftAPIWrapper(SwiftAPI):
       self.waiting_ready()
       self._init_settings()
     self.set_speed_factor(UARM_DEFAULT_SPEED_FACTOR)
-    self.mode(self.hardware_settings['mode'])
+    self.tool_mode(self.hardware_settings['mode'])
     self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
     return self
 
@@ -324,7 +329,7 @@ class SwiftAPIWrapper(SwiftAPI):
     self._pushed_acceleration = self._pushed_acceleration[:-1]
     return self
 
-  def wait_for_arrival(self, timeout=10, set_pos=True):
+  def wait_for_arrival(self, timeout=10, check=True):
     """
     Wait for all asynchronous commands and movements to finish
     :param timeout: maximum number of seconds to wait
@@ -335,21 +340,13 @@ class SwiftAPIWrapper(SwiftAPI):
     if self.is_simulating():
       return self
     start_time = time.time()
-    if self.flush_cmd(timeout=timeout, wait_stop=True) == PROTOCOL.OK:
-      return self
-    self.waiting_ready(timeout=timeout)
-    set_pos_pos = self._remove_z_offset(self._pos)
-    while time.time() - start_time < timeout:
-      # sending these commands while moving will make uArm much less smooth
-      if set_pos:
-        self.move_to(check=False, **set_pos_pos)
-      time.sleep(0.02)
-      if not self.get_is_moving(wait=True):
-        return self
-    raise TimeoutError(
-      'Unable to arrive within {1} seconds'.format(timeout))
+    if self.flush_cmd(timeout=timeout, wait_stop=True) != PROTOCOL.OK:
+      raise TimeoutError(
+        'Unable to arrive within {1} seconds'.format(timeout))
+    self.update_position(check=check)
+    return self
 
-  def mode(self, new_mode='general'):
+  def tool_mode(self, new_mode='general'):
     """
     Set the uArm device mode
     :param new_mode: Can be either "general" or "pen_gripper"
@@ -406,7 +403,7 @@ class SwiftAPIWrapper(SwiftAPI):
     pos['z'] -= self.hardware_settings['z_offset']
     return pos
 
-  def update_position(self):
+  def update_position(self, check=False):
     """
     Retrieve the current XYZ coordinate position from the connected uArm device
     :return: self
@@ -420,15 +417,21 @@ class SwiftAPIWrapper(SwiftAPI):
     if is_n or not is_l or not len(pos) or not isinstance(pos[0], float):
       logger.debug('Not able to read position, out of bounds')
       return self
-    self._pos = self._apply_z_offset({
+    new_pos = round_position(self._apply_z_offset({
       'x': pos[0],
       'y': pos[1],
       'z': pos[2]
-    })
-    self._pos = {
-      ax: round(self._pos[ax], 3)
-      for ax in 'xyz'
-    }
+    }))
+    distance = 0
+    check = check and self._enabled  # no need to check if motors are disabled
+    if check:
+      old_pos = self._pos.copy()
+      distance, _, _ = cartesian_to_polar(
+        **subtract_positions(new_pos, old_pos))
+    self._pos = new_pos
+    if check and distance > UARM_SKIPPED_DISTANCE_THRESHOLD:
+      raise RuntimeError(
+        'Detected skipped steps: {0} mm'.format(round(distance, 1)))
     logger.debug('New Position: {0}'.format(self._pos))
     return self
 
@@ -440,9 +443,11 @@ class SwiftAPIWrapper(SwiftAPI):
     # this shouldn't be calculated but instead retrieved from device
     # because there could be an offset applied to the endtool, which determines
     # the cartesian coordinate position
-    angle = self.get_servo_angle(UARM_MOTOR_IDS['base'])
+    degree = self.get_servo_angle(UARM_MOTOR_IDS['base'])
     # map angle to match Y cartesian behavior (center=0, +Y=+Angle, etc.)
-    return (90 - angle) * -1
+    degree = (90 - degree) * -1
+    radian = round((degree / 180) * math.pi, 3)
+    return radian
 
   @property
   def position(self):
@@ -576,11 +581,12 @@ class SwiftAPIWrapper(SwiftAPI):
       return True  # no way to test during simulation
     new_pos = self._pos.copy()
     if x is not None:
-      new_pos['x'] = round(x, 2)
+      new_pos['x'] = x
     if y is not None:
-      new_pos['y'] = round(y, 2)
+      new_pos['y'] = y
     if z is not None:
-      new_pos['z'] = round(z, 2)
+      new_pos['z'] = z
+    new_pos = round_position(new_pos)
     # Send coordinates to uArm to see if they are within the limit.
     # This must be done on the device itself, because of it's weird
     # coordinate system and load-carrying ability at different positions.
@@ -592,11 +598,12 @@ class SwiftAPIWrapper(SwiftAPI):
     logger.debug('can_move_relative: x={0}, y={1}, z={2}'.format(x, y, z))
     new_pos = self._pos.copy()
     if x is not None:
-      new_pos['x'] = round(x + new_pos['x'], 2)
+      new_pos['x'] = x + new_pos['x']
     if y is not None:
-      new_pos['y'] = round(y + new_pos['y'], 2)
+      new_pos['y'] = y + new_pos['y']
     if z is not None:
-      new_pos['z'] = round(z + new_pos['z'], 2)
+      new_pos['z'] = z + new_pos['z']
+    new_pos = round_position(new_pos)
     return self.can_move_to(**new_pos)
 
   def move_to(self, x=None, y=None, z=None, check=False, translate=True):
@@ -613,11 +620,12 @@ class SwiftAPIWrapper(SwiftAPI):
       self.enable_all_motors()
     new_pos = self._pos.copy()
     if x is not None:
-      new_pos['x'] = round(x, 2)
+      new_pos['x'] = x
     if y is not None:
-      new_pos['y'] = round(y, 2)
+      new_pos['y'] = y
     if z is not None:
-      new_pos['z'] = round(z, 2)
+      new_pos['z'] = z
+    new_pos = round_position(new_pos)
     if translate:
       real_pos = self._remove_z_offset(new_pos)
     else:
@@ -659,16 +667,17 @@ class SwiftAPIWrapper(SwiftAPI):
     :return: self
     """
     logger.debug('move_relative: x={0}, y={1}, z={2}'.format(x, y, z))
-    kwargs = {'check': check}
+    rel_pos = self._pos.copy()
     if x is not None:
-      kwargs['x'] = round(x + self._pos['x'], 2)
+      kwargs['x'] = x + self._pos['x']
     if y is not None:
-      kwargs['y'] = round(y + self._pos['y'], 2)
+      kwargs['y'] = y + self._pos['y']
     if z is not None:
-      kwargs['z'] = round(z + self._pos['z'], 2)
+      kwargs['z'] = z + self._pos['z']
+    rel_pos = round_position(rel_pos)
     # using only absolute movements, because accelerations do not seem to take
     # affect when using relative movements (not sure if firmware or API issue)
-    self.move_to(**kwargs)
+    self.move_to(check=check, **rel_pos)
     return self
 
   def rotate_to(self, angle=UARM_DEFAULT_WRIST_ANGLE,
@@ -689,7 +698,7 @@ class SwiftAPIWrapper(SwiftAPI):
       logger.debug('angle changed to: {0}'.format(angle))
     # previous move command will return before it has arrived at destination
     if wait:
-      self.wait_for_arrival()
+      self.wait_for_arrival(check=False)
     # speed has no affect, b/c servo motors are controlled by PWM
     # so from the device's perspective, the change is instantaneous
     if not self.is_simulating():
@@ -789,6 +798,16 @@ class SwiftAPIWrapper(SwiftAPI):
     time.sleep(sleep)
     return self
 
+  def is_gripping(self):
+    if self.is_simulating():
+      return False
+    return bool(self.get_gripper_catch() > 0)
+
+  def is_pumping(self):
+    if self.is_simulating():
+      return False
+    return bool(self.get_pump_status() > 0)
+
   def is_pressing(self):
     """
     Check to see if the pump's limit switch is being pressed
@@ -818,7 +837,7 @@ class SwiftAPIWrapper(SwiftAPI):
     # move to a know absolute position first, or else the follow
     # servo-angle commands will act unpredictably
     self.move_to(translate=False, **UARM_HOME_START_POS)
-    self.wait_for_arrival(set_pos=False)
+    self.wait_for_arrival(check=False)
     # move to the "safe" position, where it is safe to disable all motors
     # using angles ensures it's the same regardless of mode (coordinate system)
     if self.is_simulating():
@@ -827,7 +846,7 @@ class SwiftAPIWrapper(SwiftAPI):
       for m_id in UARM_HOME_ORDER:
         self.set_servo_angle(
           servo_id=m_id, angle=UARM_HOME_ANGLE[m_id], wait=True)
-    self.wait_for_arrival(set_pos=False)
+    self.wait_for_arrival(check=False)
     self.pop_settings()
     # b/c using servo angles, Python has lost track of where XYZ are
     if not self.is_simulating():
@@ -874,7 +893,7 @@ class SwiftAPIWrapper(SwiftAPI):
     if self.is_simulating():
       # just don't even bother if simulating, return immediately
       return self
-    self.wait_for_arrival(set_pos=self._enabled)
+    self.wait_for_arrival(check=False)
     start_time = time.time()
     self.update_position()
     if distance is None:
@@ -885,12 +904,8 @@ class SwiftAPIWrapper(SwiftAPI):
         raise RuntimeError(
           'uArm timed out waiting for a touch ({0} seconds)', timeout)
       self.update_position()
-      diffs = {
-        ax: self.position[ax] - start_pos[ax]
-        for ax in 'xyz'
-      }
-      sums = sum([math.pow(v, 2) for v in diffs.values()])
-      moved = math.sqrt(sums)
+      moved, _, _ = cartesian_to_polar(
+        **subtract_positions(self.position, start_pos))
       if moved > distance:
         return self
 
@@ -911,6 +926,10 @@ class SwiftAPIWrapper(SwiftAPI):
                           method=method,
                           still_seconds=still_seconds,
                           still_distance=still_distance)
+    return self
+
+  def erase(self, name):
+    self._recorder.erase(name)
     return self
 
   def playback(self, name, relative=False, speed=None, check=False):

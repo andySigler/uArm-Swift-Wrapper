@@ -42,8 +42,6 @@ class Recorder(object):
     self._data = {}
     self._processed_data = {}
     self._load_data()
-    for name in self._data.keys():
-      self.process(name, filter=False)
 
   def _load_data(self):
     with open(self._file_path, 'r') as f:
@@ -52,6 +50,8 @@ class Recorder(object):
       self._data = json.loads(data_str)
     except json.decoder.JSONDecodeError as e:
       logger.exception('Exception while loading JSON record data:')
+    for name in self._data.keys():
+      self.process(name, filter=False)
 
   def _save_data(self):
     data_json = json.dumps(self._data, indent=4)
@@ -91,7 +91,7 @@ class Recorder(object):
       while new_pos['time'] - _test_poses[0]['time'] > still_seconds:
         _test_poses = _test_poses[1:]
 
-    def _is_moving():
+    def _is_moving(bot, poses):
       # wait until the timeout period has passed
       if time.time() - _start_time < still_seconds:
         return True
@@ -107,12 +107,12 @@ class Recorder(object):
         return False
 
     if method is None:
-      method = lambda robot, poses, moving: moving
+      method = _is_moving
 
     # make sure the motors are turned off
     robot.disable_all_motors()
     _start_time = round(time.time(), 3)
-    while method(robot, copy.deepcopy(_recorded_poses), _is_moving()):
+    while method(robot, copy.deepcopy(_recorded_poses)):
       robot.update_position()
       if check and not robot.can_move_to(**robot.position):
         logger.info(
@@ -134,6 +134,12 @@ class Recorder(object):
     self.process(name)
     return self
 
+  def erase(self, name):
+    if name in self._data:
+      del self._data[name]
+      self._save_data()
+    if name in self._processed_data:
+      del self._processed_data[name]
 
   def process(self, name, filter=False, max_angle=None):
 

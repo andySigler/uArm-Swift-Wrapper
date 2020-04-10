@@ -1,7 +1,7 @@
 import json
 import os
 
-from uarm.osc.uarm_osc_server import uarm_osc_server_gen_manifest
+from uarm.remote.uarm_osc_server import uarm_osc_server_gen_manifest
 
 
 if __name__ == '__main__':
