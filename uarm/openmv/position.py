@@ -9,7 +9,8 @@ def get_openmv_position(uarm_position,
                         mode='general',
                         openmv_offset=None):
   if uarm_angle is None:
-    # Note: this only works because all uArm modes have a Y offset of 0.0
+    # Note: this only works because all uArm modes have a Y offset of 0.0,
+    #       else we'd need to use the mode's offset to derive the uarm angle
     _, uarm_angle, _ = cartesian_to_polar(**uarm_position)
   if openmv_offset is None:
     openmv_offset = get_openmv_offset(mode=mode)

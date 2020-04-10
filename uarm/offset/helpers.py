@@ -43,9 +43,30 @@ def polar_to_cartesian(distance, angle, z=None):
 
 def add_positions(*positions):
   '''
-  Add two XYZ positions together
+  Add multiple XYZ positions together
   '''
   return {ax: sum([p.get(ax, 0) for p in positions]) for ax in 'xyz'}
+
+
+def subtract_positions(p1, p2):
+  '''
+  Subtract an XYZ position from another
+  '''
+  return {ax: p1[ax] - p2[ax] for ax in 'xyz'}
+
+
+def absolute_position(position):
+  '''
+  Absolute XYZ position
+  '''
+  return {ax: abs(position[ax]) for ax in 'xyz'}
+
+
+def round_position(position, decimal=3):
+  return {
+    k: round(v, decimal)
+    for k, v in position.items()
+  }
 
 
 def _safe_divide(value, by=1):
@@ -60,13 +81,6 @@ def _angle_to(x, y):
   return math.atan(_safe_divide(y, by=x))
 
 
-def _round(position, decimal=3):
-  return {
-    k: round(v, decimal)
-    for k, v in position.items()
-  }
-
-
 if __name__ == '__main__':
   offset = {'x': 10, 'y': 10, 'z': 0}
 
@@ -74,7 +88,7 @@ if __name__ == '__main__':
   for angle in [0, math.pi * 0.25, math.pi * 0.5, math.pi]:
     print('Angle:', round(angle, 3), '({0} deg)'.format((angle / math.pi) * 180))
     new_offset = get_rotated_offset_at_angle(angle, offset)
-    print(_round(new_offset))
+    print(round_position(new_offset))
 
   print('\nTest get position for offset target:')
   import random
@@ -88,4 +102,4 @@ if __name__ == '__main__':
     u_offset = get_rotated_offset_at_angle(u_angle, offset)
     target = add_positions(uarm_pos, u_offset)
     u_target = get_position_for_offset_target_at(target, offset)
-    print(uarm_pos, '==', _round(u_target))
+    print(uarm_pos, '==', round_position(u_target))
