@@ -66,6 +66,10 @@ The [API reference documentation can be found here](doc/api/swift_api_wrapper.md
 
 This repository also include PDF guides distrubuted by uFactory, which are located in [this folder](doc/manuals).
 
+## Calibration
+
+Some configuration of the uArm and an attached OpenMV camera can be calibrated to make it more accurate. [Read more about how to calibrate here](./CALIBRATION.md).
+
 ## Quirks
 
 The uArm Swift Pro has a few unique attributes and behaviors, which need to be understood before using the device. [Here is a document](./QUIRKS.md) describing the quirks and issues I've found while developing on this device.
