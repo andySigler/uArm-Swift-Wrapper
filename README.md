@@ -54,6 +54,7 @@ Some simple examples are included to show how the API wrapper can easily be used
 - [Push/Pop the Speed Settings](examples/api-wrapper/speed_acceleration.py)
 - [Rotate the Wrist](examples/api-wrapper/rotate_wrist.py)
 - [Pick Up Items](examples/api-wrapper/pick_up.py)
+- [OpenMV Camera](examples/api-wrapper/openmv_camera.py)
 - [Disable the Motors](examples/api-wrapper/disable_motors.py)
 - [Read the Position](examples/api-wrapper/position.py)
 - [Chaining Commands](examples/api-wrapper/command_chaining.py)
@@ -93,7 +94,8 @@ Keeping track of features to be added to this wrapper.
 
 - ~~Hardware settings (Z-offset, wrist-offset, etc.) stored between sessions~~
 - ~~User-motion recording (motors off), and on-device motion playback (motors on)~~
-- Camera tracking helpers (camera offset/rotation translation; pixel to millimeter conversion)
+- ~~Camera tracking helpers (camera offset/rotation translation; pixel to millimeter conversion)~~
+- ~~Detect skipped steps, and raise an error if it happens~~
 
 #### Features that Require Firmware Modifications
 
