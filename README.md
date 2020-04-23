@@ -60,11 +60,9 @@ Some simple examples are included to show how the API wrapper can easily be used
 - [Remote Control Over a Network](examples/remote/README.md)
 - [Using Original SwiftAPI Commands](examples/api-wrapper/original_swift_api.py)
 
-(The original examples by uFactory [can be found here](examples/api/))
-
 ## API Reference
 
-The [API reference documentation can be found here](doc/api/swift_api_wrapper.md), which include methods and attributes of the `SwiftAPIWrapper` class. (The original API documentation by uFactory for their `SwiftAPI` class [can be found here](doc/api/swift_api.md))
+The [API reference documentation can be found here](doc/api/swift_api_wrapper.md), which include methods and attributes of the `SwiftAPIWrapper` class.
 
 This repository also include PDF guides distrubuted by uFactory, which are located in [this folder](doc/manuals).
 

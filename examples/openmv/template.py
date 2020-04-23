@@ -19,6 +19,7 @@ def uarm_setup(grayscale=False, resolution=2):
     # finally, skip some frames after configuring
     sensor.skip_frames()
 
+
 def uarm_snapshot(binary=False):
     img = sensor.snapshot()
     img.lens_corr(1.8)                  # flatten the image
@@ -27,6 +28,7 @@ def uarm_snapshot(binary=False):
         value = img.get_histogram().get_threshold().value()
         img.binary([(0, value)], invert=True)
     return img
+
 
 def uarm_offset_in_image(img, x, y):
     # convert image location to offset from center, in percentage of screen size

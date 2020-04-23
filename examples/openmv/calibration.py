@@ -1,3 +1,18 @@
+'''
+
+This script is for the OpenMV, to be ran during calibration.
+
+Flash this script to an OpenMV attached to the uArm, and running the
+calibration script with the following command:
+
+  python -m uarm.openmv.calibrate
+
+Read the following for more details:
+
+  https://github.com/andysigler/uArm-Python-Wrapper/blob/master/CALIBRATION.md
+
+'''
+
 import json
 import sensor
 
@@ -19,6 +34,7 @@ def uarm_setup(grayscale=False, resolution=2):
     # finally, skip some frames after configuring
     sensor.skip_frames()
 
+
 def uarm_snapshot(binary=False):
     img = sensor.snapshot()
     img.lens_corr(1.8)                  # flatten the image
@@ -27,6 +43,7 @@ def uarm_snapshot(binary=False):
         value = img.get_histogram().get_threshold().value()
         img.binary([(0, value)], invert=True)
     return img
+
 
 def uarm_offset_in_image(img, x, y):
     # convert image location to offset from center, in percentage of screen size
@@ -50,11 +67,11 @@ while True:
         [(127, 0)], pixels_threshold=10, area_threshold=10, merge=True)
     # ignore large or non-circular blobs
     size = max(img.width(), img.height())
-    max_blob_size = size * 0.5
+    max_size = size * 0.5
     small_blobs = [
         b
         for b in blobs
-        if max(b.w(), b.h()) < max_blob_size and abs(b.w() - b.h()) < (size * 0.05)
+        if max(b.w(), b.h()) < max_size and abs(b.w() - b.h()) < (size * 0.05)
     ]
     # visualize filtered blobs
     for b in small_blobs:

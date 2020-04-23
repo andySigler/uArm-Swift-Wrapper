@@ -1,5 +1,7 @@
 import atexit
 import copy
+import os
+import sys
 import time
 
 from uarm import uarm_scan_and_connect
@@ -140,7 +142,13 @@ def test_calibration(robot, camera):
 
 if __name__ == '__main__':
 
-    robot = uarm_scan_and_connect()
+    settings_dir = None
+    if len(sys.argv) > 1 and os.path.isdir(os.path.abspath(sys.argv[1])):
+        settings_dir = os.path.abspath(sys.argv[1])
+        print('Saving OpenMV calibration to -> {0}'.format(settings_dir))
+    exit()
+
+    robot = uarm_scan_and_connect(settings_dir=settings_dir)
     atexit.register(robot.sleep)
 
     camera = openmv.OpenMV(robot)
