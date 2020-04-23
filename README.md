@@ -92,11 +92,6 @@ It is recommended to read through this list before using the uArm Swift Pro and 
 
 Keeping track of features to be added to this wrapper.
 
-- ~~Hardware settings (Z-offset, wrist-offset, etc.) stored between sessions~~
-- ~~User-motion recording (motors off), and on-device motion playback (motors on)~~
-- ~~Camera tracking helpers (camera offset/rotation translation; pixel to millimeter conversion)~~
-- ~~Detect skipped steps, and raise an error if it happens~~
-
 #### Features that Require Firmware Modifications
 
 - Detect skipped steps and auto-adjust, using built-in rotary encoders
