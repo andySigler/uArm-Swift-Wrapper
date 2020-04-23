@@ -35,14 +35,6 @@ blob_pos_in_image = camera.read_json()
 blob_pos = camera.position_from_image(
     object_height=blob_height, **blob_pos_in_image)
 
-# to be even more accurate, it is recommended to move the OpenMV XY position
-# closer and then read again, especially if the first reading was far away
-camera.move_to(x=blob_pos['x'], y=blob_pos['y']) # stay high up
-robot.wait_for_arrival()
-blob_pos_in_image = camera.read_json()
-blob_pos = camera.position_from_image(
-    object_height=blob_height, **blob_pos_in_image)
-
 # move to the object's location and pick it up
 robot.move_to(**blob_pos).pump(True)
 robot.move_relative(z=20)
