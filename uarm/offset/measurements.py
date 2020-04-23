@@ -20,8 +20,8 @@ UARM_OPENMV_MOUNT_GENERAL_OFFSET = {
   'z': 24 + UARM_SERVO_GENERAL_OFFSET['z']  # the flat top
 }
 
-UARM_OPENMV_SIZE = {'x': 54.6, 'y': 44.5, 'z': 26.5}  # flat top, lense bottom
-UARM_OPENMV_LENSE = {'x': 44.5, 'y': UARM_OPENMV_SIZE['y'] / 2, 'z': 0}
+UARM_OPENMV_SIZE = {'x': 54.6, 'y': 40.5, 'z': 26.5}  # flat top, lense bottom
+UARM_OPENMV_LENSE = {'x': 45.75, 'y': UARM_OPENMV_SIZE['y'] / 2, 'z': 0}
 UARM_OPENMV_GENERAL_OFFSET = {
   'x': UARM_OPENMV_MOUNT_GENERAL_OFFSET['x'] + UARM_OPENMV_MOUNT_THICKNESS['x'] + UARM_OPENMV_LENSE['x'],
   'y': UARM_OPENMV_MOUNT_GENERAL_OFFSET['y'] + UARM_OPENMV_MOUNT_THICKNESS['y'] + UARM_OPENMV_LENSE['y'],

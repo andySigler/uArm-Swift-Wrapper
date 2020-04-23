@@ -82,16 +82,12 @@ def round_position(position, decimal=3):
   }
 
 
-def _safe_divide(value, by=1):
-  return math.inf if by == 0 else value / by
-
-
 def _distance_to(*args):
   return math.sqrt(sum([math.pow(v, 2) for v in args]))
 
 
 def _angle_to(x, y):
-  return math.atan(_safe_divide(y, by=x))
+  return math.atan2(y, x)
 
 
 if __name__ == '__main__':
