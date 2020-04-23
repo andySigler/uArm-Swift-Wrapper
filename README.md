@@ -5,6 +5,7 @@
 - [Overview](#overview)
 - [Examples](#examples)
 - [API Reference](#api-reference)
+- [Calibration](#calibration)
 - [Quirks](#quirks)
 - [Features Wishlist](#features-wishlist)
 - [Installation](#installation)
