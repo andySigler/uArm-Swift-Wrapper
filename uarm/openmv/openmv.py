@@ -111,21 +111,3 @@ class OpenMV(Offset):
 
     def _get_angled_offset_mm_at_height(self, height):
         return self._calculate_calibration(height, 'angled_offset_mm')
-
-
-if __name__ == '__main__':
-    import time
-    from uarm import uarm_scan_and_connect
-    robot = uarm_scan_and_connect()
-    robot.tool_mode('general').home()
-    camera = OpenMV(robot)
-    robot.acceleration(1)
-    robot.move_to(x=150, y=0, z=100).wait_for_arrival()
-    time.sleep(1)
-    raw_poses = camera.read_json()
-    blob_poses = [camera.position_from_image(d) for d in raw_poses]
-    for blob_pos in blob_poses:
-        hover_pos = blob_pos.copy()
-        hover_pos['z'] += 5
-        robot.move_to(**hover_pos).move_to(**blob_pos).move_to(**hover_pos)
-    robot.sleep()

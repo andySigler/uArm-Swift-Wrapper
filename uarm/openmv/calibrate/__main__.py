@@ -1,4 +1,9 @@
+import atexit
 import copy
+import time
+
+from uarm import uarm_scan_and_connect
+from uarm import openmv
 
 from uarm.offset.helpers import cartesian_to_polar
 from uarm.offset.helpers import subtract_positions, add_positions
@@ -120,13 +125,20 @@ def calculate_offset_function(data):
     return new_data
 
 
-if __name__ == '__main__':
-    import atexit
-    from pprint import pprint
-    import time
+def test_calibration(robot, camera):
+    robot.acceleration(1)
+    robot.move_to(x=150, y=0, z=100).wait_for_arrival()
+    time.sleep(1)
+    raw_poses = camera.read_json()
+    blob_poses = [camera.position_from_image(d) for d in raw_poses]
+    for blob_pos in blob_poses:
+        hover_pos = blob_pos.copy()
+        hover_pos['z'] += 5
+        robot.move_to(**hover_pos).move_to(**blob_pos).move_to(**hover_pos)
+    robot.sleep()
 
-    from uarm import uarm_scan_and_connect
-    from uarm import openmv
+
+if __name__ == '__main__':
 
     robot = uarm_scan_and_connect()
     atexit.register(robot.sleep)
@@ -137,7 +149,7 @@ if __name__ == '__main__':
     robot.hardware_settings_default().tool_mode('general').home()
 
     robot.disable_all_motors()
-    input('place robot on center of calibration dots, and press ENTER')
+    input('Place nozzle on center of calibration dots, and press ENTER')
     robot.enable_all_motors()
     robot.update_position()
     start_pos = robot.position
@@ -159,12 +171,10 @@ if __name__ == '__main__':
         calibration_data.append(data)
     robot.pop_settings()
 
-    print('Calibration Data:')
-    pprint(calibration_data)
-
     camera_functions = calculate_offset_function(calibration_data)
-    print('\nCalibration Functions:')
-    pprint(camera_functions)
 
     camera._calibration = camera_functions
     camera.save_calibration()
+
+    print('Calibration saved, testing by moving to dots')
+    test_calibration(robot, camera)
