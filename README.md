@@ -95,7 +95,6 @@ Keeping track of features to be added to this wrapper.
 #### Features that Require Firmware Modifications
 
 - Detect skipped steps and auto-adjust, using built-in rotary encoders
-- Save hardware settings (Z-offset, wrist-offset, etc.) to device ROM
 
 #### Control Over Network
 
