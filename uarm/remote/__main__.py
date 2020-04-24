@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from uarm.wrapper.swift_api_wrapper import uarm_create
+from uarm.wrapper.swift_api_wrapper import uarm_scan_and_connect
 from .uarm_osc_server import uarm_osc_server
 from .uarm_osc_server import SWIFT_API_WRAPPER_OSC_DEFAULT_IP
 from .uarm_osc_server import SWIFT_API_WRAPPER_OSC_DEFAULT_PORT_SERVER
@@ -37,6 +37,7 @@ parser.add_argument('--ip', type=str,
                     default=SWIFT_API_WRAPPER_OSC_DEFAULT_IP)
 parser.add_argument('--port', type=int,
                     default=SWIFT_API_WRAPPER_OSC_DEFAULT_PORT_SERVER)
+parser.add_argument('--hwid', type=str, default=None)
 parser.add_argument('--test', action='store_true')
 args = parser.parse_args()
 
@@ -55,6 +56,6 @@ ch.setFormatter(formatter)
 osc_logger.addHandler(ch)
 
 # create robot instance and run the OSC server
-robot = uarm_create(simulate=True)
+robot = uarm_scan_and_connect(hwid=args.hwid)
 robot_server = uarm_osc_server(robot, ip=args.ip, port=args.port)
 robot_server.serve_forever() # block forever

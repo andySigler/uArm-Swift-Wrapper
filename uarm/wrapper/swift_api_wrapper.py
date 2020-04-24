@@ -155,7 +155,7 @@ def uarm_scan(print_gcode=False, **kwargs):
   raise RuntimeError('Unable to find uArm ports')
 
 
-def uarm_scan_and_connect(print_gcode=False, **kwargs):
+def uarm_scan_and_connect(print_gcode=False, hwid=None, **kwargs):
   """
   Helper method for discovering serial port, creating instances, and connecting to SwiftAPIWrapper
   :param print_gcode: If True, enables printing of all GCode messages sent over serial
@@ -165,6 +165,9 @@ def uarm_scan_and_connect(print_gcode=False, **kwargs):
   for swift in uarm_scan(print_gcode=print_gcode, **kwargs):
     try:
       swift.connect()
+      if hwid is not None and swift.hardware_settings['id'] != hwid:
+        swift.disconnect()
+        continue
       c_swift = swift
       break
     except Exception as e:
@@ -567,7 +570,7 @@ class SwiftAPIWrapper(SwiftAPI):
   def _init_settings(self):
     self._init_hardware_settings_file()
     file_path = self.hardware_settings_path
-    read_data = read_data = self._read_hardware_settings(file_path)
+    read_data = self._read_hardware_settings(file_path)
     current_id = self._hardware_settings['id']
     self._hardware_settings = read_data.get(
       current_id, copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
