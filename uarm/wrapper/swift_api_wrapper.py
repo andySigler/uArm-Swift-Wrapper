@@ -7,7 +7,9 @@ import time
 
 from serial.tools.list_ports import comports
 
-from uarm.offset import subtract_positions, cartesian_to_polar, round_position
+from uarm.offset.helpers import cartesian_to_polar
+from uarm.offset.helpers import round_position
+from uarm.offset.helpers import subtract_positions
 from uarm.record import Recorder
 import uarm.swift.protocol as PROTOCOL
 from uarm.wrapper import SwiftAPI
@@ -55,7 +57,7 @@ UARM_MIN_ACCELERATION = 0.01
 UARM_DEFAULT_ACCELERATION = 5
 
 # DETECTING SKIPPED STEPS
-UARM_SKIPPED_DISTANCE_THRESHOLD = 1
+UARM_SKIPPED_DISTANCE_THRESHOLD = 1.5
 
 # WRIST ANGLE
 UARM_MIN_WRIST_ANGLE = 0
@@ -360,11 +362,14 @@ class SwiftAPIWrapper(SwiftAPI):
     logger.debug('mode: {0}'.format(new_mode))
     if new_mode not in UARM_MODE_TO_CODE.keys():
       raise ValueError('Unknown mode: {0}'.format(new_mode))
-    self._save_hardware_settings(mode=new_mode)
+    self.save_hardware_settings(mode=new_mode)
     if not self.is_simulating():
       self.set_mode(UARM_MODE_TO_CODE[new_mode])
     self.update_position()
     return self
+
+  def get_tool_mode(self):
+    return self.hardware_settings['mode']
 
   def speed(self, speed=UARM_DEFAULT_SPEED):
     """
@@ -434,7 +439,8 @@ class SwiftAPIWrapper(SwiftAPI):
     self._pos = new_pos
     if check and distance > UARM_SKIPPED_DISTANCE_THRESHOLD:
       raise RuntimeError(
-        'Detected skipped steps: {0} mm'.format(round(distance, 1)))
+        'Detected {0}mm skipped: target={1} - actual={2}'.format(
+          round(distance, 1), old_pos, new_pos))
     logger.debug('New Position: {0}'.format(self._pos))
     return self
 
@@ -470,7 +476,7 @@ class SwiftAPIWrapper(SwiftAPI):
 
   def _set_wrist_offset(self, wrist_offset=0):
     real_angle = self.wrist_angle + self.hardware_settings['wrist_offset']
-    self._save_hardware_settings(wrist_offset=wrist_offset)
+    self.save_hardware_settings(wrist_offset=wrist_offset)
     self._wrist_angle = real_angle - self.hardware_settings['wrist_offset']
     return self
 
@@ -509,7 +515,7 @@ class SwiftAPIWrapper(SwiftAPI):
       return
     if not os.path.isdir(directory):
       raise ValueError('Directory does not exist: {0}'.format(directory))
-    self._hardware_settings_dir = directory
+    self._hardware_settings_dir = os.path.abspath(directory)
 
   @property
   def hardware_settings_path(self):
@@ -521,9 +527,8 @@ class SwiftAPIWrapper(SwiftAPI):
     return os.path.join(
       self.settings_directory, UARM_HARDWARE_RECORDINGS_FILE_NAME)
 
-  def hardware_settings_reset(self):
+  def hardware_settings_default(self):
     self._hardware_settings = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
-    self._save_hardware_settings()
     return self
 
   def _init_hardware_settings_file(self):
@@ -547,12 +552,9 @@ class SwiftAPIWrapper(SwiftAPI):
       read_data = json.loads(read_data)
     except:
       read_data = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
-    for key, item in UARM_DEFAULT_HARDWARE_SETTINGS.items():
-      if key not in read_data:
-        read_data[key] = copy.deepcopy(item)
     return read_data
 
-  def _save_hardware_settings(self, **kwargs):
+  def save_hardware_settings(self, **kwargs):
     for key, value in kwargs.items():
       if key in self._hardware_settings:
         self._hardware_settings[key] = value
@@ -569,8 +571,13 @@ class SwiftAPIWrapper(SwiftAPI):
     self._init_hardware_settings_file()
     file_path = self.hardware_settings_path
     read_data = self._read_hardware_settings(file_path)
+    current_id = self._hardware_settings['id']
     self._hardware_settings = read_data.get(
-      self._hardware_settings['id'], copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
+      current_id, copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
+    self._hardware_settings['id'] = current_id
+    for key, item in UARM_DEFAULT_HARDWARE_SETTINGS.items():
+      if key not in self._hardware_settings:
+        self._hardware_settings[key] = copy.deepcopy(item)
     self._recorder = Recorder(self.recordings_path)
     return self
 
@@ -645,7 +652,7 @@ class SwiftAPIWrapper(SwiftAPI):
 
   def _set_z_offset(self, z_offset=0):
     real_z = self.position['z'] + self.hardware_settings['z_offset']
-    self._save_hardware_settings(z_offset=z_offset)
+    self.save_hardware_settings(z_offset=z_offset)
     self._pos['z'] = real_z - self.hardware_settings['z_offset']
     return self
 
@@ -672,11 +679,11 @@ class SwiftAPIWrapper(SwiftAPI):
     logger.debug('move_relative: x={0}, y={1}, z={2}'.format(x, y, z))
     rel_pos = self._pos.copy()
     if x is not None:
-      kwargs['x'] = x + self._pos['x']
+      rel_pos['x'] = x + self._pos['x']
     if y is not None:
-      kwargs['y'] = y + self._pos['y']
+      rel_pos['y'] = y + self._pos['y']
     if z is not None:
-      kwargs['z'] = z + self._pos['z']
+      rel_pos['z'] = z + self._pos['z']
     rel_pos = round_position(rel_pos)
     # using only absolute movements, because accelerations do not seem to take
     # affect when using relative movements (not sure if firmware or API issue)

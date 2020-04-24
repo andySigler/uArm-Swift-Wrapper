@@ -1,6 +1,19 @@
 import math
 
 
+def get_offset_position(uarm_position, offsets):
+  # Note: this only works because all uArm modes have a Y offset of 0.0,
+  #       else we'd need to use the mode's offset to derive the uarm angle
+  _, uarm_angle, _ = cartesian_to_polar(**uarm_position)
+  if not isinstance(offsets, (list, tuple)):
+    offsets = [offsets]
+  real_offsets = [
+    get_rotated_offset_at_angle(uarm_angle, offset)
+    for offset in offsets
+  ]
+  return add_positions(uarm_position, *real_offsets)
+
+
 def get_rotated_offset_at_angle(base_angle, offset):
   '''
   Get the new cartesian offset, when the uArm's base is at an angle
@@ -69,16 +82,12 @@ def round_position(position, decimal=3):
   }
 
 
-def _safe_divide(value, by=1):
-  return math.inf if by == 0 else value / by
-
-
 def _distance_to(*args):
   return math.sqrt(sum([math.pow(v, 2) for v in args]))
 
 
 def _angle_to(x, y):
-  return math.atan(_safe_divide(y, by=x))
+  return math.atan2(y, x)
 
 
 if __name__ == '__main__':

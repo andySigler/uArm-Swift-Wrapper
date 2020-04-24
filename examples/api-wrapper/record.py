@@ -23,13 +23,13 @@ robot.playback('my-recording')
 
 
 def _record_with_keyboard(bot, recording):
-    res = input('ENTER to record position, X+ENTER to stop recording')
+    res = input('ENTER to record position, X+ENTER to stop recording: ')
     if len(res) == 0:
         return True   # return True will record the current position
     elif 'x' == res.lower():
         return False  # return False will end the recording
     else:
-        return _record_on_input(bot, recording)
+        return _record_with_keyboard(bot, recording)
 
 
 print('Create a recording using keyboard input')

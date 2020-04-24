@@ -122,6 +122,9 @@ class Recorder(object):
         _add_position(robot.position)
     _end_time = round(time.time(), 3)
 
+    if len(_recorded_poses) < 3:
+      raise RuntimeError('Not enough sample to save recording')
+
     # save list of positions to disk
     save_data = copy.deepcopy(UARM_TRAIN_SAVED_DATA)
     save_data['samples'] = _recorded_poses
@@ -197,6 +200,7 @@ class Recorder(object):
       return self
     if relative:
       # get the relative offset from the robot's current position
+      robot.update_position()
       abs_start = robot.position
       pos_offset = {
         ax: abs_start[ax] - samples[0]['start'][ax]

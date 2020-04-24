@@ -5,6 +5,7 @@
 - [Overview](#overview)
 - [Examples](#examples)
 - [API Reference](#api-reference)
+- [Calibration](#calibration)
 - [Quirks](#quirks)
 - [Features Wishlist](#features-wishlist)
 - [Installation](#installation)
@@ -13,6 +14,10 @@
 ## Overview
 
 This project is a fork and thin wrapper around the [uArm-Python-SDK](https://github.com/uArm-Developer/uArm-Python-SDK) from uFactory. The goal of this fork is to create a more intuitive and easier to use set of controls for the [uArm Swift/SwiftPro](https://store.ufactory.cc/products/uarm), built on-top of the original Python API from uFactory.
+
+Because this wrapper inherits from the original Python SDK from uFactory, all of their methods and functionalities are still available through this interface.
+
+#### Basic Controls
 
 ```python
 robot = uarm_scan_and_connect()
@@ -23,6 +28,8 @@ robot.move_relative(y=-40, z=60)
 robot.pump(False)
 robot.sleep()
 ```
+
+#### Recorded Movements
 
 The wrapper also adds the ability to record and playback movements, through user-controlled motions while the motors are off. This makes orchestrating more complex motions much easier:
 
@@ -40,33 +47,54 @@ robot.playback('release-pen')
 robot.sleep()
 ```
 
-Because this wrapper inherits from the original Python SDK from uFactory, all of their methods and functionalities are still available through this interface.
+#### Camera Tracking
+
+It also includes an interface for using the OpenMV camera to detect object's positions, and translate them into the uArm's coordinate system for easier manipulation:
+
+```python
+robot = uarm_scan_and_connect()
+camera = openmv.OpenMV(robot)
+camera.move_to(x=150, y=0, z=120)       # move high up
+image_pos = camera.read_json()          # read from the camera
+object_pos = camera.position_from_image(**image_pos)
+robot.move_to(**object_pos).pump(True)  # pick it up
+robot.move_relative(z=20)
+robot.pump(False)                       # drop it
+```
 
 ## Examples
 
 Some simple examples are included to show how the API wrapper can easily be used for simple movements and controls of the uArm Swift Pro:
 
+#### Basics
 - [Connecting to a uArm](examples/api-wrapper/connect.py)
 - [Simulate for Unplugged Testing](examples/api-wrapper/simulate.py)
 - [Move the Arm](examples/api-wrapper/move_arm.py)
 - [Speed and Acceleration](examples/api-wrapper/speed_acceleration.py)
-- [Push/Pop the Speed Settings](examples/api-wrapper/speed_acceleration.py)
 - [Rotate the Wrist](examples/api-wrapper/rotate_wrist.py)
 - [Pick Up Items](examples/api-wrapper/pick_up.py)
+
+#### More Things
+- [Push/Pop the Speed Settings](examples/api-wrapper/speed_acceleration.py)
 - [Disable the Motors](examples/api-wrapper/disable_motors.py)
 - [Read the Position](examples/api-wrapper/position.py)
 - [Chaining Commands](examples/api-wrapper/command_chaining.py)
+
+#### Slightly More Advanced
 - [Recording and Playback Movements](examples/api-wrapper/record.py)
+- [OpenMV Camera](examples/api-wrapper/openmv_camera.py)
 - [Remote Control Over a Network](examples/remote/README.md)
 - [Using Original SwiftAPI Commands](examples/api-wrapper/original_swift_api.py)
 
-(The original examples by uFactory [can be found here](examples/api/))
-
 ## API Reference
 
-The [API reference documentation can be found here](doc/api/swift_api_wrapper.md), which include methods and attributes of the `SwiftAPIWrapper` class. (The original API documentation by uFactory for their `SwiftAPI` class [can be found here](doc/api/swift_api.md))
+The [API reference documentation can be found here](doc/api/swift_api_wrapper.md), which include methods and attributes of the `SwiftAPIWrapper` class.
 
 This repository also include PDF guides distrubuted by uFactory, which are located in [this folder](doc/manuals).
+
+## Calibration
+
+Some configuration of the uArm and an attached OpenMV camera can be calibrated to make it more accurate. [Read more about how to calibrate here](./CALIBRATION.md).
 
 ## Quirks
 
@@ -88,14 +116,9 @@ It is recommended to read through this list before using the uArm Swift Pro and 
 
 Keeping track of features to be added to this wrapper.
 
-- ~~Hardware settings (Z-offset, wrist-offset, etc.) stored between sessions~~
-- ~~User-motion recording (motors off), and on-device motion playback (motors on)~~
-- Camera tracking helpers (camera offset/rotation translation; pixel to millimeter conversion)
-
 #### Features that Require Firmware Modifications
 
 - Detect skipped steps and auto-adjust, using built-in rotary encoders
-- Save hardware settings (Z-offset, wrist-offset, etc.) to device ROM
 
 #### Control Over Network
 
