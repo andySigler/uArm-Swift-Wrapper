@@ -568,8 +568,10 @@ class SwiftAPIWrapper(SwiftAPI):
     self._init_hardware_settings_file()
     file_path = self.hardware_settings_path
     read_data = read_data = self._read_hardware_settings(file_path)
+    current_id = self._hardware_settings['id']
     self._hardware_settings = read_data.get(
-      self._hardware_settings['id'], copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
+      current_id, copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
+    self._hardware_settings['id'] = current_id
     for key, item in UARM_DEFAULT_HARDWARE_SETTINGS.items():
       if key not in self._hardware_settings:
         self._hardware_settings[key] = copy.deepcopy(item)
