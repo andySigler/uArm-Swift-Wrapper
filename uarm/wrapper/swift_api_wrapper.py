@@ -512,7 +512,7 @@ class SwiftAPIWrapper(SwiftAPI):
       return
     if not os.path.isdir(directory):
       raise ValueError('Directory does not exist: {0}'.format(directory))
-    self._hardware_settings_dir = directory
+    self._hardware_settings_dir = os.path.abspath(directory)
 
   @property
   def hardware_settings_path(self):
