@@ -20,7 +20,7 @@ Helper method for discovering serial ports for, and creating instances of, Swift
 ```
 Python Library Documentation: function uarm_scan_and_connect in module uarm.wrapper.swift_api_wrapper
 
-#### def uarm_scan_and_connect(print_gcode=False, **kwargs):
+#### def uarm_scan_and_connect(print_gcode=False, hwid=None, **kwargs):
 
 ```
 Helper method for discovering serial port, creating instances, and connecting to SwiftAPIWrapper
@@ -125,6 +125,9 @@ Retrieve the current angle in degrees of the base motor from the connected uArm 
 :return: angle in degrees, 90 is center
 ```
 
+#### def get_tool_mode(self):
+
+
 #### def grip(self, enable=False, sleep=None):
 
 ```
@@ -134,7 +137,7 @@ Turn on all the connected uArm's stepper motors
 :return: self
 ```
 
-#### def hardware_settings_reset(self):
+#### def hardware_settings_default(self):
 
 
 #### def home(self):
@@ -247,6 +250,9 @@ Rotate the wrist's servo motor to a angle, in degrees
 :return: self
 ```
 
+#### def save_hardware_settings(self, **kwargs):
+
+
 #### def set_settings_directory(self, directory=None):
 
 
@@ -272,14 +278,14 @@ Set the uArm device mode
 :return: self
 ```
 
-#### def update_position(self):
+#### def update_position(self, check=False):
 
 ```
 Retrieve the current XYZ coordinate position from the connected uArm device
 :return: self
 ```
 
-#### def wait_for_arrival(self, timeout=10, set_pos=True):
+#### def wait_for_arrival(self, timeout=10, check=True):
 
 ```
 Wait for all asynchronous commands and movements to finish

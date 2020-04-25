@@ -10,19 +10,17 @@
 import sys, os
 import pydoc
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+uarm_dir_name = os.path.dirname(__file__)
+sys.path.append(os.path.join(uarm_dir_name, '../..'))
 
 from uarm import SwiftAPI, SwiftAPIWrapper
 from uarm import uarm_create, uarm_scan, uarm_scan_and_connect
 
 from doc.tool.markdown_doc import MarkdownDoc
 
-print('Writing SwiftAPI docs')
-open('../api/swift_api.md', 'w', encoding='utf-8').write(
-    pydoc.render_doc(SwiftAPI, renderer=MarkdownDoc()))
-
 print('Writing SwiftAPIWrapper docs')
-extended_docs_filename = '../api/swift_api_wrapper.md'
+extended_docs_filename = os.path.join(
+    uarm_dir_name, os.path.abspath('doc/api/swift_api_wrapper.md'))
 if os.path.exists(extended_docs_filename):
     os.remove(extended_docs_filename)
 open(extended_docs_filename, 'w', encoding='utf-8').write(

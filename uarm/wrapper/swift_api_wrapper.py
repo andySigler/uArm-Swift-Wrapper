@@ -233,7 +233,7 @@ class SwiftAPIWrapper(SwiftAPI):
       self._setup()
 
   '''
-  SETTINGS, UTILS, and MODES
+  CONNECTION
   '''
 
   @property
@@ -280,6 +280,21 @@ class SwiftAPIWrapper(SwiftAPI):
     """
     return bool(self._simulating)
 
+  def _setup(self):
+    logger.debug('_setup')
+    if not self.is_simulating():
+      self.flush_cmd()
+      self.waiting_ready()
+      self._init_settings()
+    self.set_speed_factor(UARM_DEFAULT_SPEED_FACTOR)
+    self.tool_mode(self.hardware_settings['mode'])
+    self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
+    return self
+
+  '''
+  HARDWARE SETTINGS
+  '''
+
   def _test_device_info(self):
     logger.debug('_test_device_info')
     if self.is_simulating():
@@ -301,16 +316,100 @@ class SwiftAPIWrapper(SwiftAPI):
     self._hardware_settings['id'] = hw_id
     return self
 
-  def _setup(self):
-    logger.debug('_setup')
-    if not self.is_simulating():
-      self.flush_cmd()
-      self.waiting_ready()
-      self._init_settings()
-    self.set_speed_factor(UARM_DEFAULT_SPEED_FACTOR)
-    self.tool_mode(self.hardware_settings['mode'])
-    self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
+  @property
+  def hardware_settings(self):
+    return copy.deepcopy(self._hardware_settings)
+
+  @property
+  def settings_directory(self):
+    settings_dir = self._hardware_settings_dir
+    if settings_dir:
+      return settings_dir
+    # default to using a locally saved settings file (if present)
+    local_file = os.path.join(os.getcwd(), UARM_HARDWARE_SETTINGS_FILE_NAME)
+    if os.path.isfile(local_file):
+      return os.getcwd()
+    # fallback to using pre-defined folder for storing hardware settings
+    # TODO: change to an OS-defined user-data folder
+    settings_dir = os.path.dirname(os.path.realpath(__file__))
+    settings_dir = os.path.join(
+      settings_dir, '..', UARM_HARDWARE_SETTINGS_DIRECTORY)
+    return os.path.abspath(settings_dir)
+
+  def set_settings_directory(self, directory=None):
+    if directory is None:
+      return
+    if not os.path.isdir(directory):
+      raise ValueError('Directory does not exist: {0}'.format(directory))
+    self._hardware_settings_dir = os.path.abspath(directory)
+
+  @property
+  def hardware_settings_path(self):
+    return os.path.join(
+      self.settings_directory, UARM_HARDWARE_SETTINGS_FILE_NAME)
+
+  @property
+  def recordings_path(self):
+    return os.path.join(
+      self.settings_directory, UARM_HARDWARE_RECORDINGS_FILE_NAME)
+
+  def hardware_settings_default(self):
+    self._hardware_settings = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
     return self
+
+  def _init_hardware_settings_file(self):
+    file_path = self.hardware_settings_path
+    if not os.path.isdir(os.path.dirname(file_path)):
+      os.mkdir(os.path.dirname(file_path))
+    if not os.path.isfile(file_path):
+      init_data = {'simulate': UARM_DEFAULT_HARDWARE_SETTINGS}
+      if self._hardware_settings['id'] != 'simulate':
+        init_data[self._hardware_settings['id']] = self._hardware_settings
+      settings_json = json.dumps(init_data, indent=4)
+      with open(file_path, 'w') as f:
+        f.write(settings_json)
+    return self
+
+  def _read_hardware_settings(self, file_path):
+    read_data = None
+    with open(file_path, 'r') as f:
+      read_data = f.read()
+    try:
+      read_data = json.loads(read_data)
+    except:
+      read_data = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
+    return read_data
+
+  def save_hardware_settings(self, **kwargs):
+    for key, value in kwargs.items():
+      if key in self._hardware_settings:
+        self._hardware_settings[key] = value
+    self._init_hardware_settings_file()
+    file_path = self.hardware_settings_path
+    read_data = self._read_hardware_settings(file_path)
+    read_data[self._hardware_settings['id']] = self.hardware_settings
+    write_data = json.dumps(read_data, indent=4)
+    with open(file_path, 'w') as f:
+      f.write(write_data)
+    return self
+
+  def _init_settings(self):
+    self._init_hardware_settings_file()
+    file_path = self.hardware_settings_path
+    read_data = self._read_hardware_settings(file_path)
+    current_id = self._hardware_settings['id']
+    self._hardware_settings = read_data.get(
+      current_id, copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
+    self._hardware_settings['id'] = current_id
+    for key, item in UARM_DEFAULT_HARDWARE_SETTINGS.items():
+      if key not in self._hardware_settings:
+        self._hardware_settings[key] = copy.deepcopy(item)
+    self._recorder = Recorder(self.recordings_path)
+    return self
+
+  '''
+  SPEED & POSITION
+  '''
 
   def push_settings(self):
     """
@@ -490,99 +589,8 @@ class SwiftAPIWrapper(SwiftAPI):
     self._set_wrist_offset(wrist_offset=wrist_offset)
     return self
 
-  @property
-  def hardware_settings(self):
-    return copy.deepcopy(self._hardware_settings)
-
-  @property
-  def settings_directory(self):
-    settings_dir = self._hardware_settings_dir
-    if settings_dir:
-      return settings_dir
-    # default to using a locally saved settings file (if present)
-    local_file = os.path.join(os.getcwd(), UARM_HARDWARE_SETTINGS_FILE_NAME)
-    if os.path.isfile(local_file):
-      return os.getcwd()
-    # fallback to using pre-defined folder for storing hardware settings
-    # TODO: change to an OS-defined user-data folder
-    settings_dir = os.path.dirname(os.path.realpath(__file__))
-    settings_dir = os.path.join(
-      settings_dir, '..', UARM_HARDWARE_SETTINGS_DIRECTORY)
-    return os.path.abspath(settings_dir)
-
-  def set_settings_directory(self, directory=None):
-    if directory is None:
-      return
-    if not os.path.isdir(directory):
-      raise ValueError('Directory does not exist: {0}'.format(directory))
-    self._hardware_settings_dir = os.path.abspath(directory)
-
-  @property
-  def hardware_settings_path(self):
-    return os.path.join(
-      self.settings_directory, UARM_HARDWARE_SETTINGS_FILE_NAME)
-
-  @property
-  def recordings_path(self):
-    return os.path.join(
-      self.settings_directory, UARM_HARDWARE_RECORDINGS_FILE_NAME)
-
-  def hardware_settings_default(self):
-    self._hardware_settings = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
-    return self
-
-  def _init_hardware_settings_file(self):
-    file_path = self.hardware_settings_path
-    if not os.path.isdir(os.path.dirname(file_path)):
-      os.mkdir(os.path.dirname(file_path))
-    if not os.path.isfile(file_path):
-      init_data = {'simulate': UARM_DEFAULT_HARDWARE_SETTINGS}
-      if self._hardware_settings['id'] != 'simulate':
-        init_data[self._hardware_settings['id']] = self._hardware_settings
-      settings_json = json.dumps(init_data, indent=4)
-      with open(file_path, 'w') as f:
-        f.write(settings_json)
-    return self
-
-  def _read_hardware_settings(self, file_path):
-    read_data = None
-    with open(file_path, 'r') as f:
-      read_data = f.read()
-    try:
-      read_data = json.loads(read_data)
-    except:
-      read_data = copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS)
-    return read_data
-
-  def save_hardware_settings(self, **kwargs):
-    for key, value in kwargs.items():
-      if key in self._hardware_settings:
-        self._hardware_settings[key] = value
-    self._init_hardware_settings_file()
-    file_path = self.hardware_settings_path
-    read_data = self._read_hardware_settings(file_path)
-    read_data[self._hardware_settings['id']] = self.hardware_settings
-    write_data = json.dumps(read_data, indent=4)
-    with open(file_path, 'w') as f:
-      f.write(write_data)
-    return self
-
-  def _init_settings(self):
-    self._init_hardware_settings_file()
-    file_path = self.hardware_settings_path
-    read_data = self._read_hardware_settings(file_path)
-    current_id = self._hardware_settings['id']
-    self._hardware_settings = read_data.get(
-      current_id, copy.deepcopy(UARM_DEFAULT_HARDWARE_SETTINGS))
-    self._hardware_settings['id'] = current_id
-    for key, item in UARM_DEFAULT_HARDWARE_SETTINGS.items():
-      if key not in self._hardware_settings:
-        self._hardware_settings[key] = copy.deepcopy(item)
-    self._recorder = Recorder(self.recordings_path)
-    return self
-
   '''
-  ATOMIC COMMANDS
+  MOVEMENT & MOTORS
   '''
 
   def can_move_to(self, x=None, y=None, z=None):
@@ -920,7 +928,7 @@ class SwiftAPIWrapper(SwiftAPI):
         return self
 
   '''
-  RECORD/PLAYBACK COMMANDS
+  RECORD & PLAYBACK
   '''
   def record(self,
              name,

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+BIN_DIR="$(
+  cd "$(dirname "$0")" || exit
+  pwd -P
+)"
+REPO_DIR="$(cd "$BIN_DIR/.." && pwd -P)"
+
+DOCS_SCRIPT_PY="$REPO_DIR/doc/tool/gen_api.py"
+REMOTE_MANIFEST_PY="$REPO_DIR/uarm/remote/gen_manifest.py"
+
+python $DOCS_SCRIPT_PY
+python $REMOTE_MANIFEST_PY

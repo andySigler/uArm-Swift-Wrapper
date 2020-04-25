@@ -43,6 +43,10 @@
         "method": "get_base_angle",
         "arguments": []
     },
+    "get_tool_mode": {
+        "method": "get_tool_mode",
+        "arguments": []
+    },
     "grip": {
         "method": "grip",
         "arguments": [
@@ -54,12 +58,12 @@
         "method": "hardware_settings",
         "arguments": []
     },
-    "hardware_settings_path": {
-        "method": "hardware_settings_path",
+    "hardware_settings_default": {
+        "method": "hardware_settings_default",
         "arguments": []
     },
-    "hardware_settings_reset": {
-        "method": "hardware_settings_reset",
+    "hardware_settings_path": {
+        "method": "hardware_settings_path",
         "arguments": []
     },
     "home": {
@@ -176,6 +180,10 @@
             "translate"
         ]
     },
+    "save_hardware_settings": {
+        "method": "save_hardware_settings",
+        "arguments": []
+    },
     "set_settings_directory": {
         "method": "set_settings_directory",
         "arguments": [
@@ -204,13 +212,15 @@
     },
     "update_position": {
         "method": "update_position",
-        "arguments": []
+        "arguments": [
+            "check"
+        ]
     },
     "wait_for_arrival": {
         "method": "wait_for_arrival",
         "arguments": [
             "timeout",
-            "set_pos"
+            "check"
         ]
     },
     "wait_for_touch": {

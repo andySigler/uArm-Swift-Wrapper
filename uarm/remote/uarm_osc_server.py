@@ -6,6 +6,7 @@ from pythonosc import dispatcher, osc_server, udp_client
 
 from uarm.wrapper.swift_api_wrapper import SwiftAPIWrapper
 
+
 logger = logging.getLogger('uarm.swiftapi.wrapper.osc')
 
 
