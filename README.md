@@ -31,7 +31,15 @@ robot.sleep()
 
 #### Recorded Movements
 
-The wrapper also adds the ability to record and playback movements, through user-controlled motions while the motors are off. This makes orchestrating more complex motions much easier:
+The wrapper also adds the ability to record and playback movements, through user-controlled motions while the motors are off. This makes orchestrating more complex motions much easier.
+
+To record movements, run the recording script:
+
+```bash
+python -m uarm.record <RECORDING-NAME>
+```
+
+And then playback those recordings in your script:
 
 ```python
 robot = uarm_scan_and_connect()
@@ -82,8 +90,9 @@ Some simple examples are included to show how the API wrapper can easily be used
 
 #### Slightly More Advanced
 - [Recording and Playback Movements](examples/api-wrapper/record.py)
+- [Recording CLI Tool](uarm/record/README.md)
 - [OpenMV Camera](examples/api-wrapper/openmv_camera.py)
-- [Remote Control Over a Network](examples/remote/README.md)
+- [Remote Control Over a Network](uarm/remote/README.md)
 - [Using Original SwiftAPI Commands](examples/api-wrapper/original_swift_api.py)
 
 ## API Reference

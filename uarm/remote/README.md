@@ -10,7 +10,7 @@ This is currently undevelopment and almost completely untested.
 
 An OSC interface is being developed, to allow a uArm to be controlled over a network.
 
-All methods of the [`SwiftAPIWrapper`](../../uarm/wrapper/swift_api_wrapper.py) class are made available through this interface, as described in the [`swift_api_wrapper_osc.json`](../../uarm/remote/swift_api_wrapper_osc.json) file.
+All methods of the [`SwiftAPIWrapper`](../wrapper/swift_api_wrapper.py) class are made available through this interface, as described in the [`swift_api_wrapper_osc.json`](./swift_api_wrapper_osc.json) file.
 
 ### Server
 
@@ -34,7 +34,7 @@ python -m uarm.remote --ip 192.168.1.2 --port 8080
 
 Currently no OSC client has been written for controlling the uArm. I plan to build a first pass at this in NodeJS.
 
-You can see an small test of what a client needs to do within [`uarm.remote.__main__`](../../uarm/remote/__main__.py) when the `--test` flag is set:
+You can see an small test of what a client needs to do within [`uarm.remote.__main__`](./__main__.py) when the `--test` flag is set:
 
 ```
 python -m uarm.remote --test
