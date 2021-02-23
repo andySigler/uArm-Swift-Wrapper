@@ -29,7 +29,9 @@ UARM_OPENMV_GENERAL_OFFSET = {
 }
 
 
-def get_offset_in_mode(mode, offset):
+def get_offset_in_mode(mode, offset=None):
+  if offset is None:
+    offset = {'x': 0, 'y': 0, 'z': 0}
   if mode not in UARM_MODE_OFFSETS.keys():
     raise ValueError('Unknown uArm mode: {0}'.format(mode))
   return {ax: offset[ax] - UARM_MODE_OFFSETS[mode][ax] for ax in 'xyz'}

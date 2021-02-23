@@ -9,7 +9,8 @@ from serial.tools.list_ports import comports
 
 from uarm.offset.helpers import cartesian_to_polar
 from uarm.offset.helpers import round_position
-from uarm.offset.helpers import subtract_positions
+from uarm.offset.helpers import add_positions, subtract_positions
+from uarm.offset.measurements import get_offset_in_mode
 from uarm.record import Recorder
 import uarm.swift.protocol as PROTOCOL
 from uarm.wrapper import SwiftAPI
@@ -73,10 +74,13 @@ UARM_HOLDING_CODES = ['off', 'empty', 'holding']
 # HOMING
 UARM_HOME_SPEED = 200
 UARM_HOME_ACCELERATION = 1.3
-UARM_HOME_START_POS = {'x': 200, 'y': 0, 'z': 150}
-UARM_HOME_ORDER = [0, 1, 2] # base=0, shoulder=1, elbow=2
+UARM_HOME_SEQUENCE = [
+  {'x': 200, 'y': 0, 'z': 150},
+  {'x': 160, 'y': 0.0, 'z': 135},
+  {'x': 104, 'y': 0.0, 'z': 36}
+]
+UARM_HOME_ORDER = [1] # base=0, shoulder=1, elbow=2
 UARM_HOME_ANGLE = [90.0, 118, 50]
-UARM_HOME_SIMULATE_POS = {'x': 120, 'y': 0, 'z': 30}
 
 # PROBING
 UARM_DEFAULT_PROBE_SPEED = 10
@@ -94,7 +98,7 @@ UARM_HARDWARE_SETTINGS_ADDRESS_OFFSET = 10
 UARM_DEFAULT_HARDWARE_SETTINGS = {
   'id': 'simulate',
   'z_offset': 0,
-  'mode': copy.copy(UARM_MODE_TO_CODE['general']),
+  'mode': 'general',
   'wrist_offset': 0
 }
 
@@ -211,7 +215,9 @@ class SwiftAPIWrapper(SwiftAPI):
     self._port = port
 
     # run update_position() to get real position from uArm
-    self._pos = UARM_HOME_SIMULATE_POS.copy()
+    self._pos = UARM_HOME_SEQUENCE[-1].copy()
+    self._encoder_pos = self._pos.copy()
+    self._misalignment = {'x': 0, 'y': 0, 'z': 0}
     self._wrist_angle = UARM_DEFAULT_WRIST_ANGLE
 
     self._speed = UARM_DEFAULT_SPEED
@@ -464,7 +470,7 @@ class SwiftAPIWrapper(SwiftAPI):
     self.save_hardware_settings(mode=new_mode)
     if not self.is_simulating():
       self.set_mode(UARM_MODE_TO_CODE[new_mode])
-    self.update_position()
+    self.update_position(overwrite=True)
     return self
 
   def get_tool_mode(self):
@@ -502,45 +508,91 @@ class SwiftAPIWrapper(SwiftAPI):
       self.set_acceleration(acc=self._acceleration)
     return self
 
-  def _apply_z_offset(self, pos):
+  def _apply_offset(self, pos):
+    # include XY and use uarm.offset.Offset
+    self._encoder_pos =
     pos['z'] += self.hardware_settings['z_offset']
     return pos
 
-  def _remove_z_offset(self, pos):
+  def _remove_offset(self, pos):
     pos['z'] -= self.hardware_settings['z_offset']
     return pos
 
-  def update_position(self, check=False):
+  def wait_for_stable_encoders(self, timeout=1):
+    if self.is_simulating():
+      return self
+
+    def _sample():
+      self.update_encoder_position()
+      return self.encoder_position
+
+    def _is_stable(slist):
+      return abs(slist[-1] - slist[-2]) < UARM_SKIPPED_DISTANCE_THRESHOLD
+
+    start_time = time.time()
+    end_time = start_time + timeout
+    samples = [_sample() for i in range(2)]
+    while time.time() < end_time not _is_stable(samples):
+      samples.append(_sample())
+    if not _is_stable(samples):
+      raise TimeoutError(
+        'Unable to stabilize encoders in {0} seconds'.format(timeout))
+    return self
+
+  def update_encoder_position(self):
+    logger.debug('update_position')
+    if self.is_simulating():
+      self._encoder_pos = self.position
+      return self
+    pos = self.get_position(wait=True)
+    is_n = pos is None
+    is_l = isinstance(pos, (list, tuple))
+    if is_n or not is_l or len(pos) < 3 or not isinstance(pos[0], float):
+      logger.debug('Not able to read position, out of bounds')
+      return self
+    # the "real" position is known by the encoders
+    self._encoder_pos = {'x': pos[0], 'y': pos[1], 'z': pos[2]}
+    return self
+
+  @property
+  def misalignment(self):
+    return self._misalignment.copy()
+
+  @property
+  def encoder_position(self):
+    return self._encoder_pos.copy()
+
+  def update_position(self, check=False, overwrite=False):
     """
     Retrieve the current XYZ coordinate position from the connected uArm device
     :return: self
     """
     logger.debug('update_position')
+    if check:
+      self.wait_for_stable_encoders()
+    self.update_encoder_position()
     if self.is_simulating():
       return self
-    pos = self.get_position(wait=True)
-    is_n = pos is None
-    is_l = isinstance(pos, list)
-    if is_n or not is_l or not len(pos) or not isinstance(pos[0], float):
-      logger.debug('Not able to read position, out of bounds')
-      return self
-    new_pos = round_position(self._apply_z_offset({
-      'x': pos[0],
-      'y': pos[1],
-      'z': pos[2]
-    }))
-    distance = 0
-    check = check and self._enabled  # no need to check if motors are disabled
-    if check:
-      old_pos = self._pos.copy()
-      distance, _, _ = cartesian_to_polar(
-        **subtract_positions(new_pos, old_pos))
-    self._pos = new_pos
-    if check and distance > UARM_SKIPPED_DISTANCE_THRESHOLD:
-      raise RuntimeError(
-        'Detected {0}mm skipped: target={1} - actual={2}'.format(
-          round(distance, 1), old_pos, new_pos))
-    logger.debug('New Position: {0}'.format(self._pos))
+    if not self._enabled or overwrite:
+      # apply the offset
+      encoder_pos_with_offset = self._apply_offset(self.encoder_position)
+      # save the "real" encoder position
+      self._pos = round_position(encoder_pos_with_offset)
+      self._misalignment = {'x': 0, 'y': 0, 'z': 0}
+      logger.debug('Position set from encoders: {0}'.format(self.position))
+    else:
+      _expected_encoder_pos = self._remove_offset(self.position)
+      self._misalignment = {
+        ax: self.encoder_position[ax] - _expected_encoder_pos[ax]
+        for ax in 'xyz'
+      }
+      if check:
+        distance, _, _ = cartesian_to_polar(**self._misalignment)
+        # i think the encoder resolution is somewhere (> 0.5) and (< 1.0)
+        if distance > UARM_SKIPPED_DISTANCE_THRESHOLD:
+          raise RuntimeError(
+            'Detected {0}mm skipped: target={1} - actual={2}'.format(
+              round(distance, 1), self.position, self.encoder_position))
     return self
 
   def get_base_angle(self):
@@ -608,7 +660,7 @@ class SwiftAPIWrapper(SwiftAPI):
     # Send coordinates to uArm to see if they are within the limit.
     # This must be done on the device itself, because of it's weird
     # coordinate system and load-carrying ability at different positions.
-    new_pos = self._remove_z_offset(new_pos)
+    new_pos = self._remove_offset(new_pos)
     unreachable = self.check_pos_is_limit(list(new_pos.values()))
     return not bool(unreachable)
 
@@ -645,7 +697,7 @@ class SwiftAPIWrapper(SwiftAPI):
       new_pos['z'] = z
     new_pos = round_position(new_pos)
     if translate:
-      real_pos = self._remove_z_offset(new_pos)
+      real_pos = self._remove_offset(new_pos)
     else:
       real_pos = new_pos.copy()
     if not self.is_simulating():
@@ -669,7 +721,10 @@ class SwiftAPIWrapper(SwiftAPI):
     return self
 
   def z_is_level(self):
-    self.update_position()
+    if not self._enabled:
+      self.update_position(overwrite=True)
+    else:
+      self.update_position(check=True)
     real_z = self.position['z'] + self.hardware_settings['z_offset']
     z_offset = -real_z
     self._set_z_offset(z_offset=z_offset)
@@ -771,11 +826,12 @@ class SwiftAPIWrapper(SwiftAPI):
     :return: self
     """
     logger.debug('enable_all_motors')
+    self.wait_for_stable_encoders()
     if not self.is_simulating():
       self.set_servo_attach(None, wait=True)
     self._enabled = True
     # update position, b/c no way to know where we are
-    self.update_position()
+    self.update_position(overwrite=True)
     return self
 
   def pump(self, enable=False, sleep=None):
@@ -849,28 +905,41 @@ class SwiftAPIWrapper(SwiftAPI):
     :return: self
     """
     logger.debug('home')
+
+    # move to known absolute positions, regardless of misalignment and mode
+    self.wait_for_stable_encoders()
+    self.update_position()
+    mode_offset = get_offset_in_mode(self.hardware_settings['mode'])
+
+    # move to each homing position
+    at_safe_height = False
+    did_rotate_wrist = False
+    offset_home_pos = subtract_positions(mode_offset - self.misalignment)
     self.push_settings()
     self.speed(UARM_HOME_SPEED)
     self.acceleration(UARM_HOME_ACCELERATION)
-    # move to a know absolute position first, or else the follow
-    # servo-angle commands will act unpredictably
-    self.move_to(translate=False, **UARM_HOME_START_POS)
-    self.wait_for_arrival(check=False)
-    # move to the "safe" position, where it is safe to disable all motors
-    # using angles ensures it's the same regardless of mode (coordinate system)
-    if self.is_simulating():
-      self.move_to(translate=False, **UARM_HOME_SIMULATE_POS)
-    else:
-      for m_id in UARM_HOME_ORDER:
-        self.set_servo_angle(
-          servo_id=m_id, angle=UARM_HOME_ANGLE[m_id], wait=True)
+    for target_pos in UARM_HOME_SEQUENCE:
+      target_pos = add_positions(target_pos, offset_home_pos)
+      if not at_safe_height and self.can_move_to(z=target_pos['z']):
+        self.move_to(z=target_pos['z'])
+        if not did_rotate_wrist:
+          self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
+          did_rotate_wrist = True
+        at_safe_height = True
+      if self.can_move_to(**target_pos):
+        self.move_to(translate=False, **target_pos)
+        if not did_rotate_wrist:
+          self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
+          did_rotate_wrist = True
+        at_safe_height = True
     self.wait_for_arrival(check=False)
     self.pop_settings()
-    # b/c using servo angles, Python has lost track of where XYZ are
-    if not self.is_simulating():
-      time.sleep(0.25) # give it an extra time to ensure position is settled
-    self.update_position()
-    self.rotate_to(UARM_DEFAULT_WRIST_ANGLE)
+
+    # reset the motors, so we re-align with the encoders
+    self.disable_all_motors()
+    self.wait_for_stable_encoders()
+    self.update_position(overwrite=True)
+
     return self
 
   def probe(self, step=UARM_DEFAULT_PROBE_STEP, speed=UARM_DEFAULT_PROBE_SPEED):
@@ -899,7 +968,7 @@ class SwiftAPIWrapper(SwiftAPI):
       self.pump(False, sleep=0)
     elif self.hardware_settings['mode'] == 'pen_gripper':
       self.grip(False, sleep=0)
-    self.home().disable_all_motors()
+    self.home()
 
   def wait_for_touch(self, distance=None, timeout=None):
     """
@@ -913,17 +982,16 @@ class SwiftAPIWrapper(SwiftAPI):
       return self
     self.wait_for_arrival(check=False)
     start_time = time.time()
-    self.update_position()
     if distance is None:
       distance = UARM_DEFAULT_TOUCH_THRESH_MM
-    start_pos = self.position
+    start_pos = self.encoder_position
     while True:
       if timeout and time.time() - start_time > timeout:
         raise RuntimeError(
           'uArm timed out waiting for a touch ({0} seconds)', timeout)
       self.update_position()
       moved, _, _ = cartesian_to_polar(
-        **subtract_positions(self.position, start_pos))
+        **subtract_positions(self.encoder_position, start_pos))
       if moved > distance:
         return self
 
